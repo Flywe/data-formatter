@@ -337,7 +337,7 @@
       <div class="actions">
         <span id="fmt-badge" class="badge" data-i18n="undetected">Undetected</span>
         <button class="btn" id="btn-input-compress" onclick="toggleInputCompress()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18"/></svg><span data-i18n="compress">Compress</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18"/></svg><span id="lbl-btn-input-compress">Compress</span>
         </button>
         <button class="btn" onclick="clearInput()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg><span data-i18n="clear">Clear</span>
@@ -361,7 +361,7 @@
       <span class="pane-title" id="lbl-output">Output</span>
       <div class="actions">
         <button class="btn" id="btn-compress" onclick="toggleCompress()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18"/></svg><span data-i18n="compress">Compress</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18"/></svg><span id="lbl-btn-compress">Compress</span>
         </button>
         <button class="btn" onclick="copyOutput()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg><span data-i18n="copy">Copy</span>
@@ -459,6 +459,11 @@ function applyI18n() {
     const key = el.dataset.i18n;
     if (key) el.textContent = t(key);
   });
+  // Update compress buttons — respect current state so language switch doesn't reset them
+  const ic = document.getElementById('lbl-btn-input-compress');
+  if (ic) ic.textContent = isInputCompressed ? t('restore') : t('compress');
+  const oc = document.getElementById('lbl-btn-compress');
+  if (oc) oc.textContent = isCompressed ? t('restore') : t('compress');
 }
 
 function toggleLang() {
@@ -1078,39 +1083,50 @@ function toggleInputCompress() {
   const ta  = document.getElementById('input');
   const hl  = document.getElementById('input-hl');
   const btn = document.getElementById('btn-input-compress');
+  const lbl = document.getElementById('lbl-btn-input-compress');
+
   if (!ta.value.trim()) { showToast(t('toast-no-input')); return; }
 
-  isInputCompressed = !isInputCompressed;
-  const svgPath = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18"/></svg>`;
-
+  // Restore branch
   if (isInputCompressed) {
-    inputRaw = ta.value;
-    const fmt = detectFormat(inputRaw);
-    let compressed = inputRaw;
-    try {
-      switch (fmt) {
-        case 'JSON': compressed = JSON.stringify(JSON.parse(inputRaw)); break;
-        case 'XML':
-        case 'HTML': compressed = inputRaw.replace(/>\s+</g,'><').replace(/\s+/g,' ').replace(/\n/g,'').trim(); break;
-        case 'SQL':  compressed = inputRaw.replace(/\s+/g,' ').trim(); break;
-        default:     compressed = inputRaw.split('\n').map(l=>l.trim()).filter(Boolean).join(' ');
-      }
-    } catch(e) { compressed = inputRaw.replace(/[\r\n]+/g,' ').replace(/\s{2,}/g,' ').trim(); }
-    ta.value = compressed;
-    hl.innerHTML = esc(compressed);
-    resetCursor(ta, hl);
-    btn.classList.add('active');
-    btn.querySelector('span').textContent = t('restore');
-    updateBadge(fmt);
-  } else {
+    isInputCompressed = false;
     ta.value = inputRaw;
     inputRaw = '';
     syncInputHL();
     resetCursor(ta, hl);
     btn.classList.remove('active');
-    btn.querySelector('span').textContent = t('compress');
+    lbl.textContent = t('compress');
     updateBadge(detectFormat(ta.value));
+    showToast(lang === 'zh' ? '↩️ 已还原' : '↩️ Restored');
+    return;
   }
+
+  // Compress branch — skip if already single-line (no newlines)
+  if (!ta.value.includes('\n')) {
+    showToast(lang === 'zh' ? '⚡ 已是单行格式' : '⚡ Already single-line');
+    return;
+  }
+
+  isInputCompressed = true;
+  inputRaw = ta.value;
+  const fmt = detectFormat(inputRaw);
+  let compressed = inputRaw;
+  try {
+    switch (fmt) {
+      case 'JSON': compressed = JSON.stringify(JSON.parse(inputRaw)); break;
+      case 'XML':
+      case 'HTML': compressed = inputRaw.replace(/>\s+</g,'><').replace(/\s+/g,' ').replace(/\n/g,'').trim(); break;
+      case 'SQL':  compressed = inputRaw.replace(/\s+/g,' ').trim(); break;
+      default:     compressed = inputRaw.split('\n').map(l=>l.trim()).filter(Boolean).join(' ');
+    }
+  } catch(e) { compressed = inputRaw.replace(/[\r\n]+/g,' ').replace(/\s{2,}/g,' ').trim(); }
+  ta.value = compressed;
+  hl.innerHTML = esc(compressed);
+  resetCursor(ta, hl);
+  btn.classList.add('active');
+  lbl.textContent = t('restore');
+  updateBadge(fmt);
+  showToast(t('toast-compressed'));
 }
 
 /* ══════════════════════════════════════════
@@ -1134,18 +1150,19 @@ function toggleCompress() {
   if (!rawOutput) { showToast(t('toast-no-compress')); return; }
   const out = document.getElementById('output');
   const btn = document.getElementById('btn-compress');
+  const lbl = document.getElementById('lbl-btn-compress');
   isCompressed = !isCompressed;
   if (isCompressed) {
     const text = getCompressed();
     out.innerHTML = `<span class="t-str">${esc(text)}</span>`;
     out.classList.add('compressed');
     btn.classList.add('active');
-    btn.querySelector('span').textContent = t('restore');
+    lbl.textContent = t('restore');
     showToast(t('toast-compressed'));
   } else {
     restoreFormatted();
     btn.classList.remove('active');
-    btn.querySelector('span').textContent = t('compress');
+    lbl.textContent = t('compress');
   }
 }
 
@@ -1177,7 +1194,7 @@ function format() {
   isCompressed = false;
   wasAutoFixed = false;
   const btn = document.getElementById('btn-compress');
-  if (btn) { btn.classList.remove('active'); btn.querySelector('span').textContent = t('compress'); }
+  if (btn) { btn.classList.remove('active'); document.getElementById('lbl-btn-compress').textContent = t('compress'); }
   const input = document.getElementById('input').value;
   const out = document.getElementById('output');
   if (!input.trim()) { showToast(t('toast-no-input')); return; }
@@ -1249,9 +1266,9 @@ function clearInput() {
   rawOutput = ''; currentFormat = ''; isCompressed = false; wasAutoFixed = false;
   isInputCompressed = false; inputRaw = '';
   const ibtn = document.getElementById('btn-input-compress');
-  if (ibtn) { ibtn.classList.remove('active'); ibtn.querySelector('span').textContent = t('compress'); }
+  if (ibtn) { ibtn.classList.remove('active'); document.getElementById('lbl-btn-input-compress').textContent = t('compress'); }
   const cbtn = document.getElementById('btn-compress');
-  if (cbtn) { cbtn.classList.remove('active'); cbtn.querySelector('span').textContent = t('compress'); }
+  if (cbtn) { cbtn.classList.remove('active'); document.getElementById('lbl-btn-compress').textContent = t('compress'); }
 }
 
 function copyOutput() {
