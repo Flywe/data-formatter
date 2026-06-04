@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>数据格式化工具</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22253a;
+      --border: #2e3148;
+      --accent: #6c6ef5;
+      --accent2: #4ecca3;
+      --text: #e2e4f0;
+      --muted: #6b7280;
+      --error: #f87171;
+      --success: #34d399;
+      --json-key: #4FC1FF;
+      --json-str: #98C379;
+      --json-num: #D19A66;
+      --json-bool: #E06C75;
+      --json-null: #7F848E;
+      --xml-tag: #E06C75;
+      --xml-attr: #4FC1FF;
+      --xml-val: #98C379;
+      --sql-kw: #C678DD;
+      --sql-fn: #61AFEF;
+      --html-tag: #E06C75;
+      --html-attr: #4FC1FF;
+
+      /* ── 代码区字体 / 字号 / 行距（统一在此修改）── */
+      --code-font: 'Cascadia Code', 'JetBrains Mono', 'Fira Code', monospace;
+      --code-size: 13px;
+      --code-lh:   1.7;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      padding: 18px 28px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: var(--surface);
+    }
+    .logo {
+      width: 34px; height: 34px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 9px;
+      display: grid; place-items: center;
+      font-size: 17px;
+    }
+    header h1 { font-size: 17px; font-weight: 600; letter-spacing: -.2px; }
+    header p  { font-size: 12px; color: var(--muted); margin-top: 1px; }
+
+    .main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      overflow: hidden;
+      height: calc(100vh - 65px);
+    }
+
+    .pane {
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid var(--border);
+      overflow: hidden;
+    }
+    .pane:last-child { border-right: none; }
+
+    .pane-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      min-height: 46px;
+    }
+    .pane-title {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      color: var(--muted);
+    }
+    .badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-weight: 600;
+      background: var(--surface2);
+      color: var(--muted);
+      border: 1px solid var(--border);
+      transition: all .2s;
+    }
+    .badge.detected { color: var(--accent2); background: rgba(78,204,163,.1); border-color: var(--accent2); }
+
+    .actions { display: flex; gap: 8px; align-items: center; }
+    .btn {
+      display: flex; align-items: center; gap: 5px;
+      padding: 5px 11px;
+      border-radius: 7px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .btn:hover { background: var(--border); }
+    .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .btn.primary:hover { opacity: .85; }
+    .btn svg { width: 13px; height: 13px; }
+
+    .input-wrap { flex: 1; position: relative; overflow: hidden; }
+
+    /* 高亮渲染层：绝对定位在 textarea 下方 */
+    .input-hl {
+      position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      padding: 16px;
+      font-family: var(--code-font);
+      font-size: var(--code-size);
+      line-height: var(--code-lh);
+      white-space: pre-wrap;
+      word-break: break-all;
+      overflow: hidden;
+      pointer-events: none;
+      z-index: 0;
+      tab-size: 2;
+      background: var(--bg);
+    }
+
+    textarea {
+      width: 100%; height: 100%;
+      background: transparent;        /* 背景交给高亮层 */
+      color: transparent;             /* 原始文字透明，仅留光标 */
+      caret-color: var(--text);
+      border: none; outline: none; resize: none;
+      font-family: var(--code-font);
+      font-size: var(--code-size);
+      line-height: var(--code-lh);
+      padding: 16px;
+      tab-size: 2;
+      word-break: break-all;          /* 与 .input-hl 保持一致，光标位置对齐 */
+      position: relative;
+      z-index: 1;
+    }
+    textarea::placeholder { color: var(--muted); }
+    textarea::selection    { background: rgba(108,110,245,.35); color: transparent; }
+
+    .output-wrap {
+      flex: 1;
+      overflow: auto;
+      background: var(--bg);
+      padding: 16px;
+      font-family: var(--code-font);
+      font-size: var(--code-size);
+      line-height: var(--code-lh);
+      white-space: pre;
+    }
+    .output-wrap.empty {
+      display: flex; align-items: center; justify-content: center;
+      white-space: normal;
+    }
+    .empty-state { text-align: center; color: var(--muted); }
+    .empty-state svg { width: 44px; height: 44px; color: var(--border); display: block; margin: 0 auto 10px; }
+    .empty-state p { font-size: 13px; }
+    .empty-state small { font-size: 11px; color: var(--border); display: block; margin-top: 4px; }
+
+    .t-key   { color: #4FC1FF; }
+    .t-str   { color: #98C379; }
+    .t-num   { color: #D19A66; }
+    .t-bool  { color: #E06C75; }
+    .t-null  { color: #7F848E; }
+    .t-punct { color: #ABB2BF; }
+    .t-xtag  { color: #E06C75; }
+    .t-xattr { color: #4FC1FF; }
+    .t-xval  { color: #98C379; }
+    .t-xcomm { color: #5C6370; font-style: italic; }
+    .t-htag  { color: #E06C75; }
+    .t-hattr { color: #4FC1FF; }
+    .t-hval  { color: #98C379; }
+    .t-hcomm { color: #5C6370; font-style: italic; }
+    .t-skw   { color: #C678DD; font-weight: 700; }
+    .t-sfn   { color: #61AFEF; }
+    .t-sstr  { color: #98C379; }
+    .t-snum  { color: #D19A66; }
+    .error-msg { color: #f87171; font-family: 'Segoe UI', sans-serif; font-size: 13px; }
+
+    #toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text); padding: 9px 18px; border-radius: 10px;
+      font-size: 13px; opacity: 0; pointer-events: none;
+      transition: opacity .2s; z-index: 999;
+    }
+    #toast.show { opacity: 1; }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    .b-pair { cursor: pointer; border-radius: 2px; transition: background .1s; }
+    .b-pair:hover { background: rgba(255,255,255,.1); }
+    .b-active { background: rgba(255,215,0,.2) !important; outline: 1px solid currentColor; border-radius: 2px; }
+
+    .btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .btn.active:hover { opacity: .85; }
+    .output-wrap.compressed { white-space: pre-wrap; word-break: break-all; }
+
+    @media (max-width: 700px) {
+      .main { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
+      .pane { border-right: none; border-bottom: 1px solid var(--border); }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">✦</div>
+  <div>
+    <h1>数据格式化工具</h1>
+    <p>自动识别 · JSON / XML / HTML / SQL / YAML / CSV</p>
+  </div>
+</header>
+
+<div class="main">
+  <div class="pane">
+    <div class="pane-header">
+      <span class="pane-title">输入</span>
+      <div class="actions">
+        <span id="fmt-badge" class="badge">未检测</span>
+        <button class="btn" id="btn-input-compress" onclick="toggleInputCompress()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18"/></svg>压缩
+        </button>
+        <button class="btn" onclick="clearInput()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>清空
+        </button>
+        <button class="btn primary" onclick="format()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h10M4 18h14"/></svg>格式化
+        </button>
+      </div>
+    </div>
+    <div class="input-wrap">
+      <div class="input-hl" id="input-hl" aria-hidden="true"></div>
+      <textarea id="input"
+        placeholder="粘贴你的数据，支持 JSON / XML / HTML / SQL / YAML / CSV…&#10;&#10;粘贴后自动格式化 · Enter 格式化 · Shift+Enter 换行"
+        oninput="onInput()"
+        onpaste="scheduleFmt()"
+        spellcheck="false"></textarea>
+    </div>
+  </div>
+
+  <div class="pane">
+    <div class="pane-header">
+      <span class="pane-title">输出</span>
+      <div class="actions">
+        <button class="btn" id="btn-compress" onclick="toggleCompress()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18"/></svg>压缩
+        </button>
+        <button class="btn" onclick="copyOutput()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>复制
+        </button>
+        <button class="btn" onclick="downloadOutput()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>下载
+        </button>
+      </div>
+    </div>
+    <div class="output-wrap empty" id="output">
+      <div class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        <p>格式化结果将显示在这里</p>
+        <small>粘贴自动格式化 · Enter 格式化 · Shift+Enter 换行</small>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const sp  = (cls, txt) => `<span class="${cls}">${esc(txt)}</span>`;
+
+const BRACKET_COLORS = ['#FFD700','#DA70D6','#87CEEB','#98FB98','#FFA07A','#DDA0DD'];
+const bc = d => BRACKET_COLORS[Math.abs(d) % BRACKET_COLORS.length];
+
+let currentFormat = '';
+let rawOutput = '';
+let bIdCounter = 0;
+let isCompressed = false;
+let isInputCompressed = false;
+let inputRaw = '';
+
+/* ── Input Highlight ── */
+function hlInputJSON(s) {
+  let depth = 0, out = '', i = 0, n = s.length;
+  while (i < n) {
+    const ch = s[i];
+    if (ch === '"') {
+      let str = '"', j = i + 1;
+      while (j < n) {
+        if (s[j] === '\\') { str += s[j] + s[j+1]; j += 2; }
+        else if (s[j] === '"') { str += '"'; j++; break; }
+        else str += s[j++];
+      }
+      let k = j;
+      while (k < n && (s[k] === ' ' || s[k] === '\t')) k++;
+      out += s[k] === ':' ? sp('t-key', str) : sp('t-str', str);
+      i = j;
+    } else if (ch === '{' || ch === '[') {
+      out += `<span style="color:${bc(depth)};font-weight:600">${esc(ch)}</span>`;
+      depth++; i++;
+    } else if (ch === '}' || ch === ']') {
+      depth = Math.max(0, depth - 1);
+      out += `<span style="color:${bc(depth)};font-weight:600">${esc(ch)}</span>`;
+      i++;
+    } else if (ch === ':') { out += sp('t-punct', ':'); i++;
+    } else if (ch === ',') { out += sp('t-punct', ','); i++;
+    } else {
+      const rest = s.slice(i); let m;
+      if      ((m = rest.match(/^-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/))) { out += sp('t-num',  m[0]); i += m[0].length; }
+      else if ((m = rest.match(/^(?:true|false)/)))                    { out += sp('t-bool', m[0]); i += m[0].length; }
+      else if (rest.startsWith('null'))                                 { out += sp('t-null', 'null'); i += 4; }
+      else { out += esc(ch); i++; }
+    }
+  }
+  return out;
+}
+
+function hlInputXML(s) {
+  let depth = 0;
+  return esc(s)
+    .replace(/(&lt;!--)([\s\S]*?)(--&gt;)/g, (_, a, b, c) => `<span class="t-xcomm">${a}${b}${c}</span>`)
+    .replace(/(&lt;)(\/?)([a-zA-Z][\w:.-]*)((?:\s+[\w:.-]+=(?:&quot;[^&]*&quot;|'[^']*')|\s+[\w:.-]+)*\s*)(\/?)(&gt;)/g,
+      (_, lt, slash, tag, attrs, self, gt) => {
+        const isClose = slash === '/';
+        const isSelf  = self  === '/';
+        if (isClose) depth = Math.max(0, depth - 1);
+        const col = bc(depth);
+        const ah = attrs.replace(/([\w:.-]+)=(&quot;[^&]*&quot;)/g,
+          (_, k, v) => `<span class="t-xattr">${k}</span>=<span class="t-xval">${v}</span>`);
+        const out = `<span style="color:${col};font-weight:600">${lt}${slash}<span class="t-xtag">${tag}</span>${ah}${self}${gt}</span>`;
+        if (!isClose && !isSelf) depth++;
+        return out;
+      });
+}
+
+function hlInputHTML(s) {
+  let depth = 0;
+  return esc(s)
+    .replace(/(&lt;!--)([\s\S]*?)(--&gt;)/g, (_, a, b, c) => `<span class="t-hcomm">${a}${b}${c}</span>`)
+    .replace(/(&lt;)(\/?)([a-zA-Z][\w]*)((?:\s+[\w:-]+=(?:&quot;[^&]*&quot;|'[^']*')|\s+[\w:-]+)*\s*)(\/?)(&gt;)/g,
+      (_, lt, slash, tag, attrs, self, gt) => {
+        const isClose = slash === '/';
+        const isSelf  = self  === '/' || VOID.has(tag.toLowerCase());
+        if (isClose) depth = Math.max(0, depth - 1);
+        const col = bc(depth);
+        const ah = attrs.replace(/([\w:-]+)=(&quot;[^&]*&quot;)/g,
+          (_, k, v) => `<span class="t-hattr">${k}</span>=<span class="t-hval">${v}</span>`);
+        const out = `<span style="color:${col};font-weight:600">${lt}${slash}<span class="t-htag">${tag}</span>${ah}${self}${gt}</span>`;
+        if (!isClose && !isSelf) depth++;
+        return out;
+      });
+}
+
+function hlInputSQL(s) {
+  return s.split('\n').map(line => {
+    let r = esc(line);
+    r = r.replace(/('(?:[^'\\]|\\.)*')/g, m => `<span class="t-sstr">${m}</span>`);
+    r = r.replace(SQL_KW_RE, m => `<span class="t-skw">${m.toUpperCase()}</span>`);
+    r = r.replace(/\b([a-zA-Z_]\w*)\s*(?=\()/g, (m, fn) =>
+      SQL_KWS.includes(fn.toUpperCase()) ? m : `<span class="t-sfn">${fn}</span>`);
+    r = r.replace(/\b(\d+\.?\d*)\b/g, n => `<span class="t-snum">${n}</span>`);
+    return r;
+  }).join('\n');
+}
+
+function hlInputYAML(s) {
+  return s.split('\n').map(line => {
+    if (/^\s*#/.test(line)) return `<span class="t-xcomm">${esc(line)}</span>`;
+    return esc(line).replace(/^(\s*)([\w\-\.]+)(\s*:\s*)(.*)/,
+      (_, ind, k, sep, v) =>
+        `${esc(ind)}<span class="t-key">${esc(k)}</span><span class="t-punct">${esc(sep)}</span>${v ? `<span class="t-str">${esc(v)}</span>` : ''}`);
+  }).join('\n');
+}
+
+function syncInputHL() {
+  const ta  = document.getElementById('input');
+  const hl  = document.getElementById('input-hl');
+  const val = ta.value;
+  if (!val) { hl.innerHTML = ''; return; }
+
+  // 压缩数据（无换行）不高亮，仅显示纯文本
+  if (!val.includes('\n')) { hl.innerHTML = esc(val); hl.scrollTop = ta.scrollTop; hl.scrollLeft = ta.scrollLeft; return; }
+
+  const fmt = detectFormat(val);
+  try {
+    switch (fmt) {
+      case 'JSON': hl.innerHTML = hlInputJSON(val); break;
+      case 'XML':  hl.innerHTML = hlInputXML(val);  break;
+      case 'HTML': hl.innerHTML = hlInputHTML(val); break;
+      case 'SQL':  hl.innerHTML = hlInputSQL(val);  break;
+      case 'YAML': hl.innerHTML = hlInputYAML(val); break;
+      default:     hl.innerHTML = esc(val);
+    }
+  } catch (e) { hl.innerHTML = esc(val); }
+  hl.scrollTop  = ta.scrollTop;
+  hl.scrollLeft = ta.scrollLeft;
+}
+
+/* ── Detection ── */
+function detectFormat(s) {
+  s = s.trim();
+  if (!s) return 'unknown';
+  if ((s[0]==='{' || s[0]==='[') && tryJSON(s)) return 'JSON';
+  if (s.startsWith('<')) {
+    if (/^<!DOCTYPE\s+html/i.test(s) || /<html[\s>]/i.test(s) ||
+        /<(head|body|div|span|p|a\b|script|style|link|meta|title)[\s>/]/i.test(s)) return 'HTML';
+    return 'XML';
+  }
+  if (/^\s*(SELECT|INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|WITH|MERGE)\b/i.test(s)) return 'SQL';
+  if (/^---/.test(s) || (/^[\w\-]+:\s/.test(s) && !s.includes('{'))) return 'YAML';
+  const lines = s.split('\n').filter(Boolean);
+  if (lines.length >= 2) {
+    const sep = detectSep(lines[0]);
+    if (sep && lines.every(l => l.split(sep).length === lines[0].split(sep).length)) return 'CSV';
+  }
+  return 'unknown';
+}
+function tryJSON(s) { try { JSON.parse(s); return true; } catch { return false; } }
+function detectSep(l) {
+  if ((l.match(/,/g)||[]).length>1) return ',';
+  if ((l.match(/\t/g)||[]).length>1) return '\t';
+  if ((l.match(/;/g)||[]).length>1) return ';';
+  return null;
+}
+
+/* ── JSON ── */
+function formatJSON(s) {
+  const obj = JSON.parse(s);
+  rawOutput = JSON.stringify(obj, null, 4);
+  return highlightJSON(rawOutput);
+}
+function highlightJSON(s) {
+  // Pass 1: map bracket positions to IDs and find pairs
+  const bracketAt = {}, pairs = {}, stack = [];
+  let cnt = bIdCounter;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (c === '"') { i++; while (i < s.length && s[i] !== '"') { if (s[i] === '\\') i++; i++; } }
+    else if (c === '{' || c === '[') { bracketAt[i] = cnt; stack.push(cnt++); }
+    else if (c === '}' || c === ']') {
+      bracketAt[i] = cnt;
+      const mid = stack.pop();
+      if (mid !== undefined) { pairs[cnt] = mid; pairs[mid] = cnt; }
+      cnt++;
+    }
+  }
+  bIdCounter = cnt;
+
+  // Pass 2: build highlighted output
+  let depth = 0, out = '', i = 0;
+  const n = s.length;
+  while (i < n) {
+    const ch = s[i];
+    if (ch === '"') {
+      let str = '"', j = i + 1;
+      while (j < n) {
+        if (s[j] === '\\') { str += s[j] + s[j + 1]; j += 2; }
+        else if (s[j] === '"') { str += '"'; j++; break; }
+        else { str += s[j++]; }
+      }
+      let k = j;
+      while (k < n && (s[k] === ' ' || s[k] === '\t')) k++;
+      out += s[k] === ':' ? sp('t-key', str) : sp('t-str', str);
+      i = j;
+    } else if (ch === '{' || ch === '[') {
+      const bid = bracketAt[i], mid = pairs[bid] ?? -1;
+      out += `<span class="b-pair" data-bid="${bid}" data-match="${mid}" style="color:${bc(depth)};font-weight:600">${esc(ch)}</span>`;
+      depth++; i++;
+    } else if (ch === '}' || ch === ']') {
+      depth = Math.max(0, depth - 1);
+      const bid = bracketAt[i], mid = pairs[bid] ?? -1;
+      out += `<span class="b-pair" data-bid="${bid}" data-match="${mid}" style="color:${bc(depth)};font-weight:600">${esc(ch)}</span>`;
+      i++;
+    } else if (ch === ':') {
+      out += sp('t-punct', ':'); i++;
+    } else if (ch === ',') {
+      out += sp('t-punct', ','); i++;
+    } else {
+      const rest = s.slice(i);
+      let m;
+      if ((m = rest.match(/^-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/))) {
+        out += sp('t-num', m[0]); i += m[0].length;
+      } else if ((m = rest.match(/^(?:true|false)/))) {
+        out += sp('t-bool', m[0]); i += m[0].length;
+      } else if (rest.startsWith('null')) {
+        out += sp('t-null', 'null'); i += 4;
+      } else {
+        out += esc(ch); i++;
+      }
+    }
+  }
+  return out;
+}
+
+/* ── XML ── */
+function formatXML(s) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(s,'application/xml');
+  const err = doc.querySelector('parsererror');
+  if (err) throw new Error('XML 解析失败：' + err.textContent.split('\n')[0]);
+  rawOutput = serXML(doc, 0);
+  return serHlXML(doc, 0);
+}
+function serXML(node, d) {
+  const ind = '    '.repeat(d);
+  if (node.nodeType===3) { const t=node.textContent.trim(); return t?ind+t:''; }
+  if (node.nodeType===8) return `${ind}<!--${node.textContent}-->`;
+  if (node.nodeType===9) return Array.from(node.childNodes).map(n=>serXML(n,d)).filter(Boolean).join('\n');
+  const tag=node.tagName, attrs=Array.from(node.attributes).map(a=>` ${a.name}="${a.value}"`).join('');
+  const kids=Array.from(node.childNodes);
+  if (!kids.length) return `${ind}<${tag}${attrs}/>`;
+  if (kids.length===1&&kids[0].nodeType===3) {
+    const t=kids[0].textContent.trim();
+    return t?`${ind}<${tag}${attrs}>${t}</${tag}>`:`${ind}<${tag}${attrs}/>`;
+  }
+  const inner=kids.map(c=>serXML(c,d+1)).filter(Boolean).join('\n');
+  return `${ind}<${tag}${attrs}>\n${inner}\n${ind}</${tag}>`;
+}
+function serHlXML(node, d) {
+  const ind = '    '.repeat(d);
+  const col = bc(d);
+  if (node.nodeType===3) { const t=node.textContent.trim(); return t?ind+esc(t):''; }
+  if (node.nodeType===8) return `${ind}<span class="t-xcomm">&lt;!--${esc(node.textContent)}--&gt;</span>`;
+  if (node.nodeType===9) return Array.from(node.childNodes).map(n=>serHlXML(n,d)).filter(Boolean).join('\n');
+  const tag = node.tagName;
+  const attrs = Array.from(node.attributes).map(a =>
+    ` <span class="t-xattr">${esc(a.name)}</span>=<span class="t-xval">&quot;${esc(a.value)}&quot;</span>`
+  ).join('');
+  const kids = Array.from(node.childNodes);
+  const mkTag = (bid, mid, inner) =>
+    `<span class="b-pair" data-bid="${bid}" data-match="${mid}" style="color:${col};font-weight:600">${inner}</span>`;
+  if (!kids.length) {
+    const bid = bIdCounter++;
+    return `${ind}${mkTag(bid, -1, `&lt;<span class="t-xtag">${esc(tag)}</span>${attrs}/&gt;`)}`;
+  }
+  if (kids.length===1&&kids[0].nodeType===3) {
+    const t=kids[0].textContent.trim();
+    if (!t) {
+      const bid = bIdCounter++;
+      return `${ind}${mkTag(bid, -1, `&lt;<span class="t-xtag">${esc(tag)}</span>${attrs}/&gt;`)}`;
+    }
+    const obid = bIdCounter++, cbid = bIdCounter++;
+    return `${ind}${mkTag(obid, cbid, `&lt;<span class="t-xtag">${esc(tag)}</span>${attrs}&gt;`)}${esc(t)}${mkTag(cbid, obid, `&lt;/<span class="t-xtag">${esc(tag)}</span>&gt;`)}`;
+  }
+  const obid = bIdCounter++, cbid = bIdCounter++;
+  const inner=kids.map(c=>serHlXML(c,d+1)).filter(Boolean).join('\n');
+  return `${ind}${mkTag(obid, cbid, `&lt;<span class="t-xtag">${esc(tag)}</span>${attrs}&gt;`)}\n${inner}\n${ind}${mkTag(cbid, obid, `&lt;/<span class="t-xtag">${esc(tag)}</span>&gt;`)}`;
+}
+
+/* ── HTML ── */
+function formatHTML(s) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(s,'text/html');
+  rawOutput = serHTML(doc.documentElement, 0);
+  return serHlHTML(doc.documentElement, 0);
+}
+const VOID = new Set(['area','base','br','col','embed','hr','img','input','link','meta','param','source','track','wbr']);
+function serHTML(node, d) {
+  const ind='    '.repeat(d);
+  if (node.nodeType===3){const t=node.textContent.trim();return t?ind+t:'';}
+  if (node.nodeType===8) return `${ind}<!-- ${node.textContent.trim()} -->`;
+  const tag=node.tagName.toLowerCase();
+  const attrs=Array.from(node.attributes||[]).map(a=>` ${a.name}="${a.value}"`).join('');
+  if (VOID.has(tag)) return `${ind}<${tag}${attrs}>`;
+  const kids=Array.from(node.childNodes||[]);
+  if (!kids.length) return `${ind}<${tag}${attrs}></${tag}>`;
+  if (kids.length===1&&kids[0].nodeType===3){
+    const t=kids[0].textContent.trim();
+    return t?`${ind}<${tag}${attrs}>${t}</${tag}>`:`${ind}<${tag}${attrs}></${tag}>`;
+  }
+  const inner=kids.map(c=>serHTML(c,d+1)).filter(Boolean).join('\n');
+  return `${ind}<${tag}${attrs}>\n${inner}\n${ind}</${tag}>`;
+}
+function serHlHTML(node, d) {
+  const ind = '    '.repeat(d);
+  const col = bc(d);
+  if (node.nodeType===3){const t=node.textContent.trim();return t?ind+esc(t):'';}
+  if (node.nodeType===8) return `${ind}<span class="t-hcomm">&lt;!-- ${esc(node.textContent.trim())} --&gt;</span>`;
+  const tag = node.tagName.toLowerCase();
+  const attrs = Array.from(node.attributes||[]).map(a =>
+    ` <span class="t-hattr">${esc(a.name)}</span>=<span class="t-hval">&quot;${esc(a.value)}&quot;</span>`
+  ).join('');
+  const mkTag = (bid, mid, inner) =>
+    `<span class="b-pair" data-bid="${bid}" data-match="${mid}" style="color:${col};font-weight:600">${inner}</span>`;
+  if (VOID.has(tag)) {
+    const bid = bIdCounter++;
+    return `${ind}${mkTag(bid, -1, `&lt;<span class="t-htag">${esc(tag)}</span>${attrs}&gt;`)}`;
+  }
+  const kids = Array.from(node.childNodes||[]);
+  if (!kids.length) {
+    const obid = bIdCounter++, cbid = bIdCounter++;
+    return `${ind}${mkTag(obid, cbid, `&lt;<span class="t-htag">${esc(tag)}</span>${attrs}&gt;`)}${mkTag(cbid, obid, `&lt;/<span class="t-htag">${esc(tag)}</span>&gt;`)}`;
+  }
+  if (kids.length===1&&kids[0].nodeType===3) {
+    const t=kids[0].textContent.trim();
+    const obid = bIdCounter++, cbid = bIdCounter++;
+    return t
+      ? `${ind}${mkTag(obid, cbid, `&lt;<span class="t-htag">${esc(tag)}</span>${attrs}&gt;`)}${esc(t)}${mkTag(cbid, obid, `&lt;/<span class="t-htag">${esc(tag)}</span>&gt;`)}`
+      : `${ind}${mkTag(obid, cbid, `&lt;<span class="t-htag">${esc(tag)}</span>${attrs}&gt;`)}${mkTag(cbid, obid, `&lt;/<span class="t-htag">${esc(tag)}</span>&gt;`)}`;
+  }
+  const obid = bIdCounter++, cbid = bIdCounter++;
+  const inner=kids.map(c=>serHlHTML(c,d+1)).filter(Boolean).join('\n');
+  return `${ind}${mkTag(obid, cbid, `&lt;<span class="t-htag">${esc(tag)}</span>${attrs}&gt;`)}\n${inner}\n${ind}${mkTag(cbid, obid, `&lt;/<span class="t-htag">${esc(tag)}</span>&gt;`)}`;
+}
+
+/* ── SQL ── */
+const SQL_KWS = ['SELECT','FROM','WHERE','AND','OR','NOT','IN','IS','NULL','AS','ON',
+  'JOIN','LEFT','RIGHT','INNER','OUTER','FULL','CROSS','INSERT','INTO','VALUES',
+  'UPDATE','SET','DELETE','CREATE','TABLE','ALTER','DROP','INDEX','VIEW','DATABASE',
+  'ORDER','BY','GROUP','HAVING','LIMIT','OFFSET','DISTINCT','ALL','UNION','WITH',
+  'CASE','WHEN','THEN','ELSE','END','EXISTS','BETWEEN','LIKE','RETURNING','BEGIN',
+  'COMMIT','ROLLBACK','TRANSACTION','IF','ASC','DESC','FETCH','NEXT','ROWS','ONLY',
+  'WINDOW','OVER','PARTITION','TRUNCATE','MERGE','USING','REPLACE','EXPLAIN','ANALYZE'];
+const SQL_KW_RE = new RegExp(`\\b(${SQL_KWS.join('|')})\\b`,'gi');
+
+function formatSQL(s) {
+  const majors = ['SELECT','FROM','WHERE','LEFT JOIN','RIGHT JOIN','INNER JOIN','JOIN',
+    'GROUP BY','ORDER BY','HAVING','LIMIT','OFFSET','UNION','INSERT INTO','UPDATE',
+    'DELETE FROM','WITH','SET','VALUES','ON CONFLICT'];
+  let out = s.trim();
+  majors.forEach(kw => {
+    out = out.replace(new RegExp(`\\b${kw}\\b`,'gi'), '\n'+kw.toUpperCase());
+  });
+  rawOutput = out.replace(/\n\s+/g,'\n  ').trim();
+  return rawOutput.split('\n').map(line => {
+    let r = esc(line);
+    r = r.replace(/('(?:[^'\\]|\\.)*')/g, m=>`<span class="t-sstr">${m}</span>`);
+    r = r.replace(SQL_KW_RE, m=>`<span class="t-skw">${m.toUpperCase()}</span>`);
+    r = r.replace(/\b([a-zA-Z_]\w*)\s*(?=\()/g,(m,fn)=>
+      SQL_KWS.includes(fn.toUpperCase())?m:`<span class="t-sfn">${fn}</span>`);
+    r = r.replace(/\b(\d+\.?\d*)\b/g, n=>`<span class="t-snum">${n}</span>`);
+    return r;
+  }).join('\n');
+}
+
+/* ── YAML ── */
+function formatYAML(s) {
+  rawOutput = s.trim();
+  return rawOutput.split('\n').map(line => {
+    if (/^\s*#/.test(line)) return `<span class="t-xcomm">${esc(line)}</span>`;
+    return esc(line).replace(/^(\s*)([\w\-\.]+)(\s*:\s*)(.*)/, (_,ind,k,sep,v)=>
+      `${esc(ind)}<span class="t-key">${esc(k)}</span><span class="t-punct">${esc(sep)}</span>${v?`<span class="t-str">${esc(v)}</span>`:''}`);
+  }).join('\n');
+}
+
+/* ── CSV ── */
+function formatCSV(s) {
+  const lines = s.trim().split('\n').filter(Boolean);
+  const sep = detectSep(lines[0]) || ',';
+  rawOutput = s.trim();
+  const rows = lines.map(l => l.split(sep).map(c => c.trim().replace(/^"|"$/g,'')));
+  const widths = Array.from({length:rows[0].length},(_,i)=>Math.max(...rows.map(r=>(r[i]||'').length)));
+  return rows.map((row,ri) => {
+    const cells = row.map((c,ci) => {
+      const p = c.padEnd(widths[ci]);
+      if (ri===0) return sp('t-key',p);
+      return /^-?\d+\.?\d*$/.test(c.trim()) ? sp('t-num',p) : sp('t-str',p);
+    }).join(sp('t-punct',' │ '));
+    if (ri===1) {
+      const div = widths.map(w=>'─'.repeat(w)).join('─┼─');
+      return sp('t-punct',div) + '\n' + cells;
+    }
+    return cells;
+  }).join('\n');
+}
+
+/* ── Input Compress ── */
+// 重置光标到文本起始位置并滚动至顶部，避免光标悬浮在空白区
+function resetCursor(ta, hl) {
+  ta.setSelectionRange(0, 0);
+  ta.scrollTop = 0;
+  if (hl) hl.scrollTop = 0;
+}
+
+function toggleInputCompress() {
+  const ta  = document.getElementById('input');
+  const hl  = document.getElementById('input-hl');
+  const btn = document.getElementById('btn-input-compress');
+  if (!ta.value.trim()) { showToast('⚠️ 请先输入数据'); return; }
+
+  isInputCompressed = !isInputCompressed;
+
+  if (isInputCompressed) {
+    inputRaw = ta.value;
+    const fmt = detectFormat(inputRaw);
+    let compressed = inputRaw;
+    try {
+      switch (fmt) {
+        case 'JSON': compressed = JSON.stringify(JSON.parse(inputRaw)); break;
+        case 'XML':
+        case 'HTML': compressed = inputRaw.replace(/>\s+</g,'><').replace(/\s+/g,' ').replace(/\n/g,'').trim(); break;
+        case 'SQL':  compressed = inputRaw.replace(/\s+/g,' ').trim(); break;
+        default:     compressed = inputRaw.split('\n').map(l=>l.trim()).filter(Boolean).join(' ');
+      }
+    } catch(e) { compressed = inputRaw.replace(/[\r\n]+/g,' ').replace(/\s{2,}/g,' ').trim(); }
+    ta.value = compressed;
+    hl.innerHTML = esc(compressed);
+    resetCursor(ta, hl);
+    btn.classList.add('active');
+    btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18"/></svg>还原`;
+    updateBadge(fmt);
+  } else {
+    ta.value = inputRaw;
+    inputRaw = '';
+    syncInputHL();
+    resetCursor(ta, hl);
+    btn.classList.remove('active');
+    btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18"/></svg>压缩`;
+    updateBadge(detectFormat(ta.value));
+  }
+}
+
+/* ── Compress ── */
+function getCompressed() {
+  const inputVal = document.getElementById('input').value.trim();
+  // 输入已是压缩格式（无换行），直接返回，与左侧保持一致
+  if (!inputVal.includes('\n')) return inputVal;
+  // 输入是格式化数据，需按格式真正压缩
+  try {
+    switch (currentFormat) {
+      case 'JSON': return JSON.stringify(JSON.parse(rawOutput));
+      case 'XML':
+      case 'HTML': return rawOutput.replace(/>\s+</g,'><').replace(/\s+/g,' ').replace(/\n/g,'').trim();
+      case 'SQL':  return rawOutput.replace(/\s+/g,' ').trim();
+      default:     return rawOutput.split('\n').map(l=>l.trim()).filter(Boolean).join(' ');
+    }
+  } catch(e) { return inputVal.replace(/\s+/g,' '); }
+}
+
+function toggleCompress() {
+  if (!rawOutput) { showToast('⚠️ 暂无内容可压缩'); return; }
+  const out = document.getElementById('output');
+  const btn = document.getElementById('btn-compress');
+  isCompressed = !isCompressed;
+  if (isCompressed) {
+    const text = getCompressed();
+    out.innerHTML = `<span class="t-muted">${esc(text)}</span>`;
+    out.classList.add('compressed');
+    btn.classList.add('active');
+    btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18"/></svg>还原`;
+    showToast('📦 已压缩');
+  } else {
+    restoreFormatted();
+    btn.classList.remove('active');
+    btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18"/></svg>压缩`;
+  }
+}
+
+function restoreFormatted() {
+  if (!rawOutput) return;
+  const out = document.getElementById('output');
+  out.classList.remove('compressed');
+  bIdCounter = 0;
+  try {
+    let html;
+    switch (currentFormat) {
+      case 'JSON': html = highlightJSON(rawOutput); break;
+      case 'XML':  { const doc = new DOMParser().parseFromString(rawOutput,'application/xml'); html = serHlXML(doc, 0); break; }
+      case 'HTML': { const doc = new DOMParser().parseFromString(rawOutput,'text/html'); html = serHlHTML(doc.documentElement, 0); break; }
+      case 'SQL':  html = rawOutput.split('\n').map(line => { let r=esc(line); r=r.replace(/('(?:[^'\\]|\\.)*')/g,m=>`<span class="t-sstr">${m}</span>`); r=r.replace(SQL_KW_RE,m=>`<span class="t-skw">${m.toUpperCase()}</span>`); r=r.replace(/\b([a-zA-Z_]\w*)\s*(?=\()/g,(m,fn)=>SQL_KWS.includes(fn.toUpperCase())?m:`<span class="t-sfn">${fn}</span>`); r=r.replace(/\b(\d+\.?\d*)\b/g,n=>`<span class="t-snum">${n}</span>`); return r; }).join('\n'); break;
+      case 'YAML': html = rawOutput.split('\n').map(line => { if(/^\s*#/.test(line)) return `<span class="t-xcomm">${esc(line)}</span>`; return esc(line).replace(/^(\s*)([\w\-\.]+)(\s*:\s*)(.*)/,(_,ind,k,sep,v)=>`${esc(ind)}<span class="t-key">${esc(k)}</span><span class="t-punct">${esc(sep)}</span>${v?`<span class="t-str">${esc(v)}</span>`:''}`); }).join('\n'); break;
+      default: html = esc(rawOutput);
+    }
+    out.innerHTML = html;
+  } catch(e) { out.innerHTML = esc(rawOutput); }
+}
+
+/* ── Dispatch ── */
+function format() {
+  bIdCounter = 0;
+  isCompressed = false;
+  const btn = document.getElementById('btn-compress');
+  if (btn) { btn.classList.remove('active'); btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18"/></svg>压缩`; }
+  const input = document.getElementById('input').value;
+  const out = document.getElementById('output');
+  if (!input.trim()) { showToast('⚠️ 请先输入数据'); return; }
+
+  const fmt = detectFormat(input);
+  currentFormat = fmt;
+  updateBadge(fmt);
+  out.classList.remove('empty');
+
+  try {
+    let html;
+    switch(fmt) {
+      case 'JSON': html = formatJSON(input); break;
+      case 'XML':  html = formatXML(input);  break;
+      case 'HTML': html = formatHTML(input);  break;
+      case 'SQL':  html = formatSQL(input);   break;
+      case 'YAML': html = formatYAML(input);  break;
+      case 'CSV':  html = formatCSV(input);   break;
+      default:
+        rawOutput = input.trim();
+        html = esc(rawOutput);
+        showToast('⚠️ 未识别格式，已原样输出');
+    }
+    out.innerHTML = html;
+  } catch(e) {
+    out.innerHTML = `<span class="error-msg">❌ ${esc(e.message)}</span>`;
+    rawOutput = '';
+  }
+}
+
+function onInput() {
+  const v = document.getElementById('input').value;
+  updateBadge(v.trim() ? detectFormat(v) : 'unknown');
+  // 有换行 = 格式化数据，保持高亮；无换行 = 压缩数据，纯文本显示
+  if (v.includes('\n')) {
+    syncInputHL();
+  } else {
+    document.getElementById('input-hl').innerHTML = esc(v);
+  }
+}
+
+function scheduleFmt() { setTimeout(() => { syncInputHL(); format(); }, 60); }
+
+function updateBadge(fmt) {
+  const b = document.getElementById('fmt-badge');
+  b.textContent = fmt === 'unknown' ? '未检测' : fmt;
+  b.className = 'badge' + (fmt !== 'unknown' ? ' detected' : '');
+}
+
+function clearInput() {
+  document.getElementById('input').value = '';
+  document.getElementById('input-hl').innerHTML = '';
+  const out = document.getElementById('output');
+  out.innerHTML = `<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><p>格式化结果将显示在这里</p><small>粘贴后自动格式化 · Ctrl+Enter 手动触发</small></div>`;
+  out.classList.add('empty');
+  updateBadge('unknown');
+  rawOutput = ''; currentFormat = ''; isCompressed = false;
+  isInputCompressed = false; inputRaw = '';
+  const ibtn = document.getElementById('btn-input-compress');
+  if (ibtn) { ibtn.classList.remove('active'); ibtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18"/></svg>压缩`; }
+  const btn = document.getElementById('btn-compress');
+  if (btn) { btn.classList.remove('active'); btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18"/></svg>压缩`; }
+}
+
+function copyOutput() {
+  if (!rawOutput) { showToast('⚠️ 暂无内容可复制'); return; }
+  const text = isCompressed ? getCompressed() : rawOutput;
+  navigator.clipboard.writeText(text).then(() => showToast('✅ 已复制到剪贴板'));
+}
+
+function downloadOutput() {
+  if (!rawOutput) { showToast('⚠️ 暂无内容可下载'); return; }
+  const ext = {JSON:'json',XML:'xml',HTML:'html',SQL:'sql',YAML:'yaml',CSV:'csv'};
+  const text = isCompressed ? getCompressed() : rawOutput;
+  const suffix = isCompressed ? '.min' : '';
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text],{type:'text/plain'}));
+  a.download = `formatted${suffix}.${ext[currentFormat]||'txt'}`;
+  a.click();
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+document.getElementById('output').addEventListener('click', e => {
+  const span = e.target.closest('.b-pair');
+  document.querySelectorAll('#output .b-active').forEach(el => el.classList.remove('b-active'));
+  if (!span) return;
+  span.classList.add('b-active');
+  const mid = span.dataset.match;
+  if (mid !== '-1') {
+    const match = document.querySelector(`#output .b-pair[data-bid="${mid}"]`);
+    if (match) match.classList.add('b-active');
+  }
+});
+
+document.getElementById('input').addEventListener('scroll', function () {
+  const hl = document.getElementById('input-hl');
+  hl.scrollTop  = this.scrollTop;
+  hl.scrollLeft = this.scrollLeft;
+});
+
+document.getElementById('input').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+    // Enter alone = format（Shift+Enter = 换行）
+    const v = document.getElementById('input').value.trim();
+    if (v) { e.preventDefault(); format(); }
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); format(); }
+});
+</script>
+</body>
+</html>

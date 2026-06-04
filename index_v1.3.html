@@ -1,0 +1,1303 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Data Formatter</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22253a;
+      --border: #2e3148;
+      --accent: #6c6ef5;
+      --accent2: #4ecca3;
+      --text: #e2e4f0;
+      --muted: #6b7280;
+      --error: #f87171;
+      --success: #34d399;
+      --json-key: #4FC1FF;
+      --json-str: #98C379;
+      --json-num: #D19A66;
+      --json-bool: #E06C75;
+      --json-null: #7F848E;
+      --xml-tag: #E06C75;
+      --xml-attr: #4FC1FF;
+      --xml-val: #98C379;
+      --sql-kw: #C678DD;
+      --sql-fn: #61AFEF;
+      --html-tag: #E06C75;
+      --html-attr: #4FC1FF;
+      --code-font: 'Cascadia Code', 'JetBrains Mono', 'Fira Code', monospace;
+      --code-size: 13px;
+      --code-lh:   1.7;
+    }
+
+    [data-theme="light"] {
+      --bg: #f5f6fa;
+      --surface: #ffffff;
+      --surface2: #eef0f6;
+      --border: #d0d3e0;
+      --accent: #5a5cf0;
+      --accent2: #20b087;
+      --text: #1e2030;
+      --muted: #7b8197;
+      --error: #e05252;
+      --success: #1a9e6e;
+      --json-key: #0070c1;
+      --json-str: #3c7a29;
+      --json-num: #b05a00;
+      --json-bool: #b02060;
+      --json-null: #888fa0;
+      --xml-tag: #b02060;
+      --xml-attr: #0070c1;
+      --xml-val: #3c7a29;
+      --sql-kw: #7c34c8;
+      --sql-fn: #1560c0;
+      --html-tag: #b02060;
+      --html-attr: #0070c1;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      transition: background .2s, color .2s;
+    }
+
+    header {
+      padding: 12px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: var(--surface);
+      transition: background .2s, border-color .2s;
+    }
+    .logo {
+      width: 32px; height: 32px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 9px;
+      display: grid; place-items: center;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+    .header-info { flex: 1; min-width: 0; }
+    header h1 { font-size: 16px; font-weight: 600; letter-spacing: -.2px; }
+    header p  { font-size: 11px; color: var(--muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .header-controls { display: flex; gap: 14px; align-items: center; flex-shrink: 0; }
+
+    /* ── Toggle switch ── */
+    .tog-group {
+      display: flex; align-items: center; gap: 7px;
+      cursor: pointer; user-select: none;
+    }
+    .tog-lbl {
+      font-size: 11px; font-weight: 600; color: var(--muted);
+      transition: color .2s; letter-spacing: .3px;
+    }
+    .tog-lbl.active { color: var(--text); }
+    .tog {
+      position: relative;
+      width: 34px; height: 18px;
+      background: var(--border);
+      border-radius: 9px;
+      transition: background .25s;
+      flex-shrink: 0;
+    }
+    .tog.on { background: var(--accent); }
+    .tog-knob {
+      position: absolute;
+      top: 2px; left: 2px;
+      width: 14px; height: 14px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform .25s cubic-bezier(.4,0,.2,1);
+      box-shadow: 0 1px 3px rgba(0,0,0,.35);
+    }
+    .tog.on .tog-knob { transform: translateX(16px); }
+    .tog-sep { width: 1px; height: 18px; background: var(--border); margin: 0 2px; }
+
+    .main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      overflow: hidden;
+      height: calc(100vh - 57px);
+    }
+
+    .pane {
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid var(--border);
+      overflow: hidden;
+      transition: border-color .2s;
+    }
+    .pane:last-child { border-right: none; }
+
+    .pane-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 14px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      min-height: 44px;
+      transition: background .2s, border-color .2s;
+    }
+    .pane-title {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      color: var(--muted);
+    }
+    .badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-weight: 600;
+      background: var(--surface2);
+      color: var(--muted);
+      border: 1px solid var(--border);
+      transition: all .2s;
+    }
+    .badge.detected { color: var(--accent2); background: rgba(78,204,163,.12); border-color: var(--accent2); }
+
+    .actions { display: flex; gap: 6px; align-items: center; }
+    .btn {
+      display: flex; align-items: center; gap: 5px;
+      padding: 4px 10px;
+      border-radius: 7px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .btn:hover { background: var(--border); }
+    .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .btn.primary:hover { opacity: .85; }
+    .btn svg { width: 13px; height: 13px; }
+
+    .input-wrap { flex: 1; position: relative; overflow: hidden; }
+
+    .input-hl {
+      position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      padding: 14px;
+      font-family: var(--code-font);
+      font-size: var(--code-size);
+      line-height: var(--code-lh);
+      white-space: pre-wrap;
+      word-break: break-all;
+      overflow: hidden;
+      pointer-events: none;
+      z-index: 0;
+      tab-size: 2;
+      background: var(--bg);
+      transition: background .2s;
+    }
+
+    textarea {
+      width: 100%; height: 100%;
+      background: transparent;
+      color: transparent;
+      caret-color: var(--text);
+      border: none; outline: none; resize: none;
+      font-family: var(--code-font);
+      font-size: var(--code-size);
+      line-height: var(--code-lh);
+      padding: 14px;
+      tab-size: 2;
+      word-break: break-all;
+      position: relative;
+      z-index: 1;
+    }
+    textarea::placeholder { color: var(--muted); }
+    textarea::selection    { background: rgba(108,110,245,.35); color: transparent; }
+
+    .output-wrap {
+      flex: 1;
+      overflow: auto;
+      background: var(--bg);
+      padding: 14px;
+      font-family: var(--code-font);
+      font-size: var(--code-size);
+      line-height: var(--code-lh);
+      white-space: pre;
+      transition: background .2s;
+    }
+    .output-wrap.empty {
+      display: flex; align-items: center; justify-content: center;
+      white-space: normal;
+    }
+    .empty-state { text-align: center; color: var(--muted); }
+    .empty-state svg { width: 44px; height: 44px; color: var(--border); display: block; margin: 0 auto 10px; }
+    .empty-state p { font-size: 13px; }
+    .empty-state small { font-size: 11px; color: var(--border); display: block; margin-top: 4px; }
+
+    .t-key   { color: var(--json-key); }
+    .t-str   { color: var(--json-str); }
+    .t-num   { color: var(--json-num); }
+    .t-bool  { color: var(--json-bool); }
+    .t-null  { color: var(--json-null); }
+    .t-punct { color: #ABB2BF; }
+    [data-theme="light"] .t-punct { color: #666c80; }
+    .t-xtag  { color: var(--xml-tag); }
+    .t-xattr { color: var(--xml-attr); }
+    .t-xval  { color: var(--xml-val); }
+    .t-xcomm { color: #5C6370; font-style: italic; }
+    [data-theme="light"] .t-xcomm { color: #7a8294; }
+    .t-htag  { color: var(--html-tag); }
+    .t-hattr { color: var(--html-attr); }
+    .t-hval  { color: var(--json-str); }
+    .t-hcomm { color: #5C6370; font-style: italic; }
+    [data-theme="light"] .t-hcomm { color: #7a8294; }
+    .t-skw   { color: var(--sql-kw); font-weight: 700; }
+    .t-sfn   { color: var(--sql-fn); }
+    .t-sstr  { color: var(--json-str); }
+    .t-snum  { color: var(--json-num); }
+    .error-msg { color: var(--error); font-family: 'Segoe UI', sans-serif; font-size: 13px; }
+    .info-msg  { color: var(--accent2); font-family: 'Segoe UI', sans-serif; font-size: 12px; margin-bottom: 8px; display: block; }
+
+    /* KV table format */
+    .t-kv-key { color: var(--json-key); font-weight: 600; }
+    .t-kv-sep { color: var(--muted); }
+    .t-kv-val { color: var(--json-str); }
+    .t-kv-val.long { color: var(--json-num); }
+
+    #toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text); padding: 9px 18px; border-radius: 10px;
+      font-size: 13px; opacity: 0; pointer-events: none;
+      transition: opacity .2s; z-index: 999;
+    }
+    #toast.show { opacity: 1; }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    .b-pair { cursor: pointer; border-radius: 2px; transition: background .1s; }
+    .b-pair:hover { background: rgba(255,255,255,.1); }
+    [data-theme="light"] .b-pair:hover { background: rgba(0,0,0,.08); }
+    .b-active { background: rgba(255,215,0,.2) !important; outline: 1px solid currentColor; border-radius: 2px; }
+    [data-theme="light"] .b-active { background: rgba(180,140,0,.15) !important; }
+
+    .btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .btn.active:hover { opacity: .85; }
+    .output-wrap.compressed { white-space: pre-wrap; word-break: break-all; }
+
+    @media (max-width: 700px) {
+      .main { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
+      .pane { border-right: none; border-bottom: 1px solid var(--border); }
+      header p { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">✦</div>
+  <div class="header-info">
+    <h1>Data Formatter</h1>
+    <p id="hdr-sub">Automatic recognition · JSON / XML / HTML / SQL / YAML / CSV / KV</p>
+  </div>
+  <div class="header-controls">
+    <!-- Language toggle: EN(left/off) → ZH(right/on) -->
+    <div class="tog-group" onclick="toggleLang()" title="Switch Language">
+      <span class="tog-lbl active" id="lbl-lang-en">EN</span>
+      <div class="tog" id="tog-lang"><div class="tog-knob"></div></div>
+      <span class="tog-lbl" id="lbl-lang-zh">中文</span>
+    </div>
+    <div class="tog-sep"></div>
+    <!-- Theme toggle: 🌙(left/off) → ☀️(right/on) -->
+    <div class="tog-group" onclick="toggleTheme()" title="Toggle Theme">
+      <span class="tog-lbl active" id="lbl-theme-dark">🌙</span>
+      <div class="tog" id="tog-theme"><div class="tog-knob"></div></div>
+      <span class="tog-lbl" id="lbl-theme-light">☀️</span>
+    </div>
+  </div>
+</header>
+
+<div class="main">
+  <div class="pane">
+    <div class="pane-header">
+      <span class="pane-title" id="lbl-input">Input</span>
+      <div class="actions">
+        <span id="fmt-badge" class="badge" data-i18n="undetected">Undetected</span>
+        <button class="btn" id="btn-input-compress" onclick="toggleInputCompress()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18"/></svg><span data-i18n="compress">Compress</span>
+        </button>
+        <button class="btn" onclick="clearInput()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg><span data-i18n="clear">Clear</span>
+        </button>
+        <button class="btn primary" onclick="format()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h10M4 18h14"/></svg><span data-i18n="format">Format</span>
+        </button>
+      </div>
+    </div>
+    <div class="input-wrap">
+      <div class="input-hl" id="input-hl" aria-hidden="true"></div>
+      <textarea id="input"
+        spellcheck="false"
+        oninput="onInput()"
+        onpaste="scheduleFmt()"></textarea>
+    </div>
+  </div>
+
+  <div class="pane">
+    <div class="pane-header">
+      <span class="pane-title" id="lbl-output">Output</span>
+      <div class="actions">
+        <button class="btn" id="btn-compress" onclick="toggleCompress()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18"/></svg><span data-i18n="compress">Compress</span>
+        </button>
+        <button class="btn" onclick="copyOutput()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg><span data-i18n="copy">Copy</span>
+        </button>
+        <button class="btn" onclick="downloadOutput()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span data-i18n="download">Download</span>
+        </button>
+      </div>
+    </div>
+    <div class="output-wrap empty" id="output">
+      <div class="empty-state" id="empty-state-content">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        <p data-i18n="empty-p">Formatted result will appear here</p>
+        <small data-i18n="empty-hint">Paste to auto-format · Enter to format · Shift+Enter for newline</small>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ══════════════════════════════════════════
+   i18n
+══════════════════════════════════════════ */
+const I18N = {
+  en: {
+    'hdr-sub':      'Automatic recognition · JSON / XML / HTML / SQL / YAML / CSV / KV',
+    'lbl-input':    'Input',
+    'lbl-output':   'Output',
+    'undetected':   'Undetected',
+    'compress':     'Compress',
+    'restore':      'Restore',
+    'clear':        'Clear',
+    'format':       'Format',
+    'copy':         'Copy',
+    'download':     'Download',
+    'empty-p':      'Formatted result will appear here',
+    'empty-hint':   'Paste to auto-format · Enter to format · Shift+Enter for newline',
+    'placeholder':  'Paste your data here. Supports JSON / XML / HTML / SQL / YAML / CSV / KV…\n\nAuto-format on paste · Enter to format · Shift+Enter for newline',
+    'toast-no-input':    '⚠️ Please enter data first',
+    'toast-no-compress': '⚠️ Nothing to compress',
+    'toast-no-copy':     '⚠️ Nothing to copy',
+    'toast-no-download': '⚠️ Nothing to download',
+    'toast-copied':      '✅ Copied to clipboard',
+    'toast-compressed':  '📦 Compressed',
+    'toast-unknown':     '⚠️ Unknown format, output as-is',
+    'toast-fixed':       '🔧 Auto-fixed and formatted',
+    'lang-btn':          '中文',
+    'theme-btn-to-light':'Light',
+    'theme-btn-to-dark': 'Dark',
+  },
+  zh: {
+    'hdr-sub':      '自动识别 · JSON / XML / HTML / SQL / YAML / CSV / KV',
+    'lbl-input':    '输入',
+    'lbl-output':   '输出',
+    'undetected':   '未检测',
+    'compress':     '压缩',
+    'restore':      '还原',
+    'clear':        '清空',
+    'format':       '格式化',
+    'copy':         '复制',
+    'download':     '下载',
+    'empty-p':      '格式化结果将显示在这里',
+    'empty-hint':   '粘贴自动格式化 · Enter 格式化 · Shift+Enter 换行',
+    'placeholder':  '粘贴你的数据，支持 JSON / XML / HTML / SQL / YAML / CSV / KV…\n\n粘贴后自动格式化 · Enter 格式化 · Shift+Enter 换行',
+    'toast-no-input':    '⚠️ 请先输入数据',
+    'toast-no-compress': '⚠️ 暂无内容可压缩',
+    'toast-no-copy':     '⚠️ 暂无内容可复制',
+    'toast-no-download': '⚠️ 暂无内容可下载',
+    'toast-copied':      '✅ 已复制到剪贴板',
+    'toast-compressed':  '📦 已压缩',
+    'toast-unknown':     '⚠️ 未识别格式，已原样输出',
+    'toast-fixed':       '🔧 已自动修复并格式化',
+    'lang-btn':          'English',
+    'theme-btn-to-light':'浅色',
+    'theme-btn-to-dark': '深色',
+  }
+};
+
+let lang = 'en';
+
+function t(key) { return (I18N[lang] || I18N.en)[key] || key; }
+
+function applyI18n() {
+  document.getElementById('input').placeholder = t('placeholder');
+  document.getElementById('hdr-sub').textContent = t('hdr-sub');
+  document.getElementById('lbl-input').textContent = t('lbl-input');
+  document.getElementById('lbl-output').textContent = t('lbl-output');
+  const badge = document.getElementById('fmt-badge');
+  if ([I18N.en['undetected'], I18N.zh['undetected']].includes(badge.textContent)) {
+    badge.textContent = t('undetected');
+  }
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.dataset.i18n;
+    if (key) el.textContent = t(key);
+  });
+}
+
+function toggleLang() {
+  lang = lang === 'en' ? 'zh' : 'en';
+  const isZH = lang === 'zh';
+  document.getElementById('tog-lang').classList.toggle('on', isZH);
+  document.getElementById('lbl-lang-en').classList.toggle('active', !isZH);
+  document.getElementById('lbl-lang-zh').classList.toggle('active', isZH);
+  applyI18n();
+  const out = document.getElementById('output');
+  if (out.classList.contains('empty')) renderEmptyState();
+}
+
+/* ══════════════════════════════════════════
+   Theme
+══════════════════════════════════════════ */
+let currentTheme = 'dark';
+
+function toggleTheme() {
+  currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
+  const isLight = currentTheme === 'light';
+  document.documentElement.setAttribute('data-theme', currentTheme);
+  document.getElementById('tog-theme').classList.toggle('on', isLight);
+  document.getElementById('lbl-theme-dark').classList.toggle('active', !isLight);
+  document.getElementById('lbl-theme-light').classList.toggle('active', isLight);
+}
+
+/* ══════════════════════════════════════════
+   Utilities
+══════════════════════════════════════════ */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const sp  = (cls, txt) => `<span class="${cls}">${esc(txt)}</span>`;
+
+const BRACKET_COLORS = ['#FFD700','#DA70D6','#87CEEB','#98FB98','#FFA07A','#DDA0DD'];
+const bc = d => BRACKET_COLORS[Math.abs(d) % BRACKET_COLORS.length];
+
+let currentFormat = '';
+let rawOutput = '';
+let bIdCounter = 0;
+let isCompressed = false;
+let isInputCompressed = false;
+let inputRaw = '';
+let wasAutoFixed = false;
+
+/* ══════════════════════════════════════════
+   Auto-fix / repair helpers
+══════════════════════════════════════════ */
+
+// Fix common JSON issues and return parsed object, or throw
+function tryRepairJSON(s) {
+  // 1. Remove trailing commas before ] or }
+  let fixed = s.replace(/,\s*([\]}])/g, '$1');
+  // 2. Try direct parse
+  try { return { obj: JSON.parse(fixed), fixed }; } catch {}
+  // 3. Add missing quotes to unquoted keys
+  fixed = fixed.replace(/([{,]\s*)([a-zA-Z_$][a-zA-Z0-9_$]*)\s*:/g, '$1"$2":');
+  try { return { obj: JSON.parse(fixed), fixed }; } catch {}
+  // 4. Replace single-quoted strings with double-quoted
+  fixed = fixed.replace(/'([^'\\]*(\\.[^'\\]*)*)'/g, (_, inner) => '"' + inner.replace(/"/g, '\\"') + '"');
+  try { return { obj: JSON.parse(fixed), fixed }; } catch {}
+  // 5. Close unclosed brackets/braces
+  fixed = autoCloseBrackets(fixed);
+  try { return { obj: JSON.parse(fixed), fixed }; } catch {}
+  // 6. Missing opening bracket — try wrapping as object body
+  const asObj = `{${fixed}}`;
+  try { return { obj: JSON.parse(asObj), fixed: asObj }; } catch {}
+  // 7. Missing opening bracket — try wrapping as array body
+  const asArr = `[${fixed}]`;
+  try { return { obj: JSON.parse(asArr), fixed: asArr }; } catch {}
+  throw new Error('Cannot repair JSON');
+}
+
+function autoCloseBrackets(s) {
+  const stack = [];
+  const pairs = { '{': '}', '[': ']' };
+  const closes = new Set(['}', ']']);
+  let inStr = false, escape = false;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (escape) { escape = false; continue; }
+    if (c === '\\' && inStr) { escape = true; continue; }
+    if (c === '"') { inStr = !inStr; continue; }
+    if (inStr) continue;
+    if (pairs[c]) stack.push(pairs[c]);
+    else if (closes.has(c)) stack.pop();
+  }
+  // Close any remaining open brackets in reverse
+  while (stack.length) s += stack.pop();
+  return s;
+}
+
+// Fix XML: attempt to auto-close unclosed tags
+function tryRepairXML(s) {
+  // simple: parse and rely on DOMParser error recovery by wrapping
+  const parser = new DOMParser();
+  let doc = parser.parseFromString(s, 'application/xml');
+  if (!doc.querySelector('parsererror')) return { doc, fixed: s };
+  // wrap in a root element and retry
+  const wrapped = `<_root_>${s}</_root_>`;
+  doc = parser.parseFromString(wrapped, 'application/xml');
+  if (!doc.querySelector('parsererror')) {
+    // unwrap: return inner HTML
+    const root = doc.documentElement;
+    return { doc: null, fixedDoc: root, fixed: wrapped, wrapped: true };
+  }
+  throw new Error('XML parse failed');
+}
+
+// Fix HTML: DOMParser always succeeds for HTML
+function tryRepairHTML(s) {
+  const parser = new DOMParser();
+  return parser.parseFromString(s, 'text/html');
+}
+
+/* ══════════════════════════════════════════
+   KV (key=value;…) format — e.g. HTTP headers
+══════════════════════════════════════════ */
+function detectKV(s) {
+  // Pattern: optional [ ] wrapper, entries separated by ; or & or ,
+  // each entry is key=value
+  const stripped = s.trim().replace(/^\[|\]$/g, '');
+  const entries = stripped.split(/[;\n&]/).map(e => e.trim()).filter(Boolean);
+  if (entries.length < 2) return false;
+  const kvPairs = entries.map(e => {
+    const eq = e.indexOf('=');
+    if (eq < 1) return null;
+    return { key: e.slice(0, eq).trim(), val: e.slice(eq + 1).trim() };
+  });
+  if (kvPairs.filter(Boolean).length < entries.length * 0.7) return false;
+  return kvPairs.filter(Boolean);
+}
+
+function formatKV(s) {
+  const stripped = s.trim().replace(/^\[|\]$/g, '');
+  const entries = stripped.split(/[;\n&]/).map(e => e.trim()).filter(Boolean);
+  const kvPairs = entries.map(e => {
+    const eq = e.indexOf('=');
+    if (eq < 1) return { key: e, val: '' };
+    return { key: e.slice(0, eq).trim(), val: e.slice(eq + 1).trim() };
+  });
+
+  const maxKeyLen = Math.max(...kvPairs.map(p => p.key.length));
+  rawOutput = kvPairs.map(p => `${p.key.padEnd(maxKeyLen)} = ${p.val}`).join('\n');
+
+  return kvPairs.map(p => {
+    const paddedKey = p.key.padEnd(maxKeyLen);
+    const isLong = p.val.length > 60;
+    const valClass = isLong ? 't-kv-val long' : 't-kv-val';
+    return `<span class="t-kv-key">${esc(paddedKey)}</span><span class="t-kv-sep"> = </span><span class="${valClass}">${esc(p.val)}</span>`;
+  }).join('\n');
+}
+
+/* ══════════════════════════════════════════
+   Input Highlight
+══════════════════════════════════════════ */
+function hlInputJSON(s) {
+  let depth = 0, out = '', i = 0, n = s.length;
+  while (i < n) {
+    const ch = s[i];
+    if (ch === '"') {
+      let str = '"', j = i + 1;
+      while (j < n) {
+        if (s[j] === '\\') { str += s[j] + s[j+1]; j += 2; }
+        else if (s[j] === '"') { str += '"'; j++; break; }
+        else str += s[j++];
+      }
+      let k = j;
+      while (k < n && (s[k] === ' ' || s[k] === '\t')) k++;
+      out += s[k] === ':' ? sp('t-key', str) : sp('t-str', str);
+      i = j;
+    } else if (ch === '{' || ch === '[') {
+      out += `<span style="color:${bc(depth)};font-weight:600">${esc(ch)}</span>`;
+      depth++; i++;
+    } else if (ch === '}' || ch === ']') {
+      depth = Math.max(0, depth - 1);
+      out += `<span style="color:${bc(depth)};font-weight:600">${esc(ch)}</span>`;
+      i++;
+    } else if (ch === ':') { out += sp('t-punct', ':'); i++;
+    } else if (ch === ',') { out += sp('t-punct', ','); i++;
+    } else {
+      const rest = s.slice(i); let m;
+      if      ((m = rest.match(/^-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/))) { out += sp('t-num',  m[0]); i += m[0].length; }
+      else if ((m = rest.match(/^(?:true|false)/)))                    { out += sp('t-bool', m[0]); i += m[0].length; }
+      else if (rest.startsWith('null'))                                 { out += sp('t-null', 'null'); i += 4; }
+      else { out += esc(ch); i++; }
+    }
+  }
+  return out;
+}
+
+function hlInputXML(s) {
+  let depth = 0;
+  return esc(s)
+    .replace(/(&lt;!--)([\s\S]*?)(--&gt;)/g, (_, a, b, c) => `<span class="t-xcomm">${a}${b}${c}</span>`)
+    .replace(/(&lt;)(\/?)([a-zA-Z][\w:.-]*)((?:\s+[\w:.-]+=(?:&quot;[^&]*&quot;|'[^']*')|\s+[\w:.-]+)*\s*)(\/?)(&gt;)/g,
+      (_, lt, slash, tag, attrs, self, gt) => {
+        const isClose = slash === '/';
+        const isSelf  = self  === '/';
+        if (isClose) depth = Math.max(0, depth - 1);
+        const col = bc(depth);
+        const ah = attrs.replace(/([\w:.-]+)=(&quot;[^&]*&quot;)/g,
+          (_, k, v) => `<span class="t-xattr">${k}</span>=<span class="t-xval">${v}</span>`);
+        const out = `<span style="color:${col};font-weight:600">${lt}${slash}<span class="t-xtag">${tag}</span>${ah}${self}${gt}</span>`;
+        if (!isClose && !isSelf) depth++;
+        return out;
+      });
+}
+
+function hlInputHTML(s) {
+  let depth = 0;
+  return esc(s)
+    .replace(/(&lt;!--)([\s\S]*?)(--&gt;)/g, (_, a, b, c) => `<span class="t-hcomm">${a}${b}${c}</span>`)
+    .replace(/(&lt;)(\/?)([a-zA-Z][\w]*)((?:\s+[\w:-]+=(?:&quot;[^&]*&quot;|'[^']*')|\s+[\w:-]+)*\s*)(\/?)(&gt;)/g,
+      (_, lt, slash, tag, attrs, self, gt) => {
+        const isClose = slash === '/';
+        const isSelf  = self  === '/' || VOID.has(tag.toLowerCase());
+        if (isClose) depth = Math.max(0, depth - 1);
+        const col = bc(depth);
+        const ah = attrs.replace(/([\w:-]+)=(&quot;[^&]*&quot;)/g,
+          (_, k, v) => `<span class="t-hattr">${k}</span>=<span class="t-hval">${v}</span>`);
+        const out = `<span style="color:${col};font-weight:600">${lt}${slash}<span class="t-htag">${tag}</span>${ah}${self}${gt}</span>`;
+        if (!isClose && !isSelf) depth++;
+        return out;
+      });
+}
+
+function hlInputSQL(s) {
+  return s.split('\n').map(line => {
+    let r = esc(line);
+    r = r.replace(/('(?:[^'\\]|\\.)*')/g, m => `<span class="t-sstr">${m}</span>`);
+    r = r.replace(SQL_KW_RE, m => `<span class="t-skw">${m.toUpperCase()}</span>`);
+    r = r.replace(/\b([a-zA-Z_]\w*)\s*(?=\()/g, (m, fn) =>
+      SQL_KWS.includes(fn.toUpperCase()) ? m : `<span class="t-sfn">${fn}</span>`);
+    r = r.replace(/\b(\d+\.?\d*)\b/g, n => `<span class="t-snum">${n}</span>`);
+    return r;
+  }).join('\n');
+}
+
+function hlInputYAML(s) {
+  return s.split('\n').map(line => {
+    if (/^\s*#/.test(line)) return `<span class="t-xcomm">${esc(line)}</span>`;
+    return esc(line).replace(/^(\s*)([\w\-\.]+)(\s*:\s*)(.*)/,
+      (_, ind, k, sep, v) =>
+        `${esc(ind)}<span class="t-key">${esc(k)}</span><span class="t-punct">${esc(sep)}</span>${v ? `<span class="t-str">${esc(v)}</span>` : ''}`);
+  }).join('\n');
+}
+
+function syncInputHL() {
+  const ta  = document.getElementById('input');
+  const hl  = document.getElementById('input-hl');
+  const val = ta.value;
+  if (!val) { hl.innerHTML = ''; return; }
+  if (!val.includes('\n')) { hl.innerHTML = esc(val); hl.scrollTop = ta.scrollTop; hl.scrollLeft = ta.scrollLeft; return; }
+
+  const fmt = detectFormat(val);
+  try {
+    switch (fmt) {
+      case 'JSON': hl.innerHTML = hlInputJSON(val); break;
+      case 'XML':  hl.innerHTML = hlInputXML(val);  break;
+      case 'HTML': hl.innerHTML = hlInputHTML(val); break;
+      case 'SQL':  hl.innerHTML = hlInputSQL(val);  break;
+      case 'YAML': hl.innerHTML = hlInputYAML(val); break;
+      default:     hl.innerHTML = esc(val);
+    }
+  } catch (e) { hl.innerHTML = esc(val); }
+  hl.scrollTop  = ta.scrollTop;
+  hl.scrollLeft = ta.scrollLeft;
+}
+
+/* ══════════════════════════════════════════
+   Detection
+══════════════════════════════════════════ */
+function detectFormat(s) {
+  s = s.trim();
+  if (!s) return 'unknown';
+  if ((s[0]==='{' || s[0]==='[') && tryJSON(s)) return 'JSON';
+  // Possibly malformed JSON (starts with bracket but has syntax errors)
+  if ((s[0]==='{' || s[0]==='[') && looksLikeJSON(s)) return 'JSON';
+  // JSON body missing opening bracket: "key": value, ... or value, value, ...
+  if (looksLikeJSONBody(s)) return 'JSON';
+  if (s.startsWith('<')) {
+    if (/^<!DOCTYPE\s+html/i.test(s) || /<html[\s>]/i.test(s) ||
+        /<(head|body|div|span|p|a\b|script|style|link|meta|title)[\s>/]/i.test(s)) return 'HTML';
+    return 'XML';
+  }
+  if (/^\s*(SELECT|INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|WITH|MERGE)\b/i.test(s)) return 'SQL';
+  if (/^---/.test(s) || (/^[\w\-]+:\s/.test(s) && !s.includes('{'))) return 'YAML';
+  const lines = s.split('\n').filter(Boolean);
+  if (lines.length >= 2) {
+    const sep = detectSep(lines[0]);
+    if (sep && lines.every(l => l.split(sep).length === lines[0].split(sep).length)) return 'CSV';
+  }
+  // KV format: [k=v;k=v] or k=v;k=v
+  if (detectKV(s)) return 'KV';
+  return 'unknown';
+}
+
+function tryJSON(s) { try { JSON.parse(s); return true; } catch { return false; } }
+
+function looksLikeJSON(s) {
+  return /["'a-zA-Z_]\s*:/.test(s) || /,\s*[\]}]/.test(s) || s.includes('null') || s.includes('true');
+}
+
+function looksLikeJSONBody(s) {
+  // Looks like object body: "key": value pairs
+  if (/"[^"]+"\s*:/.test(s)) return true;
+  // Looks like array body: starts with a JSON value and has commas
+  if (/^(\s*(".*?"|true|false|null|-?\d[\d.eE+\-]*)\s*,)/.test(s)) return true;
+  return false;
+}
+
+function detectSep(l) {
+  if ((l.match(/,/g)||[]).length>1) return ',';
+  if ((l.match(/\t/g)||[]).length>1) return '\t';
+  if ((l.match(/;/g)||[]).length>1) return ';';
+  return null;
+}
+
+/* ══════════════════════════════════════════
+   JSON
+══════════════════════════════════════════ */
+function formatJSON(s) {
+  let obj, fixed = false;
+  try {
+    obj = JSON.parse(s);
+  } catch {
+    const result = tryRepairJSON(s);
+    obj = result.obj;
+    fixed = true;
+  }
+  rawOutput = JSON.stringify(obj, null, 4);
+  return { html: highlightJSON(rawOutput), fixed };
+}
+
+function highlightJSON(s) {
+  const bracketAt = {}, pairs = {}, stack = [];
+  let cnt = bIdCounter;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (c === '"') { i++; while (i < s.length && s[i] !== '"') { if (s[i] === '\\') i++; i++; } }
+    else if (c === '{' || c === '[') { bracketAt[i] = cnt; stack.push(cnt++); }
+    else if (c === '}' || c === ']') {
+      bracketAt[i] = cnt;
+      const mid = stack.pop();
+      if (mid !== undefined) { pairs[cnt] = mid; pairs[mid] = cnt; }
+      cnt++;
+    }
+  }
+  bIdCounter = cnt;
+
+  let depth = 0, out = '', i = 0;
+  const n = s.length;
+  while (i < n) {
+    const ch = s[i];
+    if (ch === '"') {
+      let str = '"', j = i + 1;
+      while (j < n) {
+        if (s[j] === '\\') { str += s[j] + s[j + 1]; j += 2; }
+        else if (s[j] === '"') { str += '"'; j++; break; }
+        else { str += s[j++]; }
+      }
+      let k = j;
+      while (k < n && (s[k] === ' ' || s[k] === '\t')) k++;
+      out += s[k] === ':' ? sp('t-key', str) : sp('t-str', str);
+      i = j;
+    } else if (ch === '{' || ch === '[') {
+      const bid = bracketAt[i], mid = pairs[bid] ?? -1;
+      out += `<span class="b-pair" data-bid="${bid}" data-match="${mid}" style="color:${bc(depth)};font-weight:600">${esc(ch)}</span>`;
+      depth++; i++;
+    } else if (ch === '}' || ch === ']') {
+      depth = Math.max(0, depth - 1);
+      const bid = bracketAt[i], mid = pairs[bid] ?? -1;
+      out += `<span class="b-pair" data-bid="${bid}" data-match="${mid}" style="color:${bc(depth)};font-weight:600">${esc(ch)}</span>`;
+      i++;
+    } else if (ch === ':') {
+      out += sp('t-punct', ':'); i++;
+    } else if (ch === ',') {
+      out += sp('t-punct', ','); i++;
+    } else {
+      const rest = s.slice(i);
+      let m;
+      if ((m = rest.match(/^-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/))) {
+        out += sp('t-num', m[0]); i += m[0].length;
+      } else if ((m = rest.match(/^(?:true|false)/))) {
+        out += sp('t-bool', m[0]); i += m[0].length;
+      } else if (rest.startsWith('null')) {
+        out += sp('t-null', 'null'); i += 4;
+      } else {
+        out += esc(ch); i++;
+      }
+    }
+  }
+  return out;
+}
+
+/* ══════════════════════════════════════════
+   XML
+══════════════════════════════════════════ */
+function formatXML(s) {
+  const parser = new DOMParser();
+  let doc = parser.parseFromString(s, 'application/xml');
+  let fixed = false;
+  if (doc.querySelector('parsererror')) {
+    // Try wrapping in a root
+    const wrapped = `<_root_>${s}</_root_>`;
+    doc = parser.parseFromString(wrapped, 'application/xml');
+    if (doc.querySelector('parsererror')) throw new Error('XML parse failed');
+    fixed = true;
+    // Serialize children of _root_
+    const root = doc.documentElement;
+    const children = Array.from(root.childNodes);
+    rawOutput = children.map(n => serXML(n, 0)).filter(Boolean).join('\n');
+    return { html: children.map(n => serHlXML(n, 0)).filter(Boolean).join('\n'), fixed };
+  }
+  rawOutput = serXML(doc, 0);
+  return { html: serHlXML(doc, 0), fixed };
+}
+
+function serXML(node, d) {
+  const ind = '    '.repeat(d);
+  if (node.nodeType===3) { const t=node.textContent.trim(); return t?ind+t:''; }
+  if (node.nodeType===8) return `${ind}<!--${node.textContent}-->`;
+  if (node.nodeType===9) return Array.from(node.childNodes).map(n=>serXML(n,d)).filter(Boolean).join('\n');
+  const tag=node.tagName, attrs=Array.from(node.attributes).map(a=>` ${a.name}="${a.value}"`).join('');
+  const kids=Array.from(node.childNodes);
+  if (!kids.length) return `${ind}<${tag}${attrs}/>`;
+  if (kids.length===1&&kids[0].nodeType===3) {
+    const t=kids[0].textContent.trim();
+    return t?`${ind}<${tag}${attrs}>${t}</${tag}>`:`${ind}<${tag}${attrs}/>`;
+  }
+  const inner=kids.map(c=>serXML(c,d+1)).filter(Boolean).join('\n');
+  return `${ind}<${tag}${attrs}>\n${inner}\n${ind}</${tag}>`;
+}
+
+function serHlXML(node, d) {
+  const ind = '    '.repeat(d);
+  const col = bc(d);
+  if (node.nodeType===3) { const t=node.textContent.trim(); return t?ind+esc(t):''; }
+  if (node.nodeType===8) return `${ind}<span class="t-xcomm">&lt;!--${esc(node.textContent)}--&gt;</span>`;
+  if (node.nodeType===9) return Array.from(node.childNodes).map(n=>serHlXML(n,d)).filter(Boolean).join('\n');
+  const tag = node.tagName;
+  const attrs = Array.from(node.attributes).map(a =>
+    ` <span class="t-xattr">${esc(a.name)}</span>=<span class="t-xval">&quot;${esc(a.value)}&quot;</span>`
+  ).join('');
+  const kids = Array.from(node.childNodes);
+  const mkTag = (bid, mid, inner) =>
+    `<span class="b-pair" data-bid="${bid}" data-match="${mid}" style="color:${col};font-weight:600">${inner}</span>`;
+  if (!kids.length) {
+    const bid = bIdCounter++;
+    return `${ind}${mkTag(bid, -1, `&lt;<span class="t-xtag">${esc(tag)}</span>${attrs}/&gt;`)}`;
+  }
+  if (kids.length===1&&kids[0].nodeType===3) {
+    const t=kids[0].textContent.trim();
+    if (!t) {
+      const bid = bIdCounter++;
+      return `${ind}${mkTag(bid, -1, `&lt;<span class="t-xtag">${esc(tag)}</span>${attrs}/&gt;`)}`;
+    }
+    const obid = bIdCounter++, cbid = bIdCounter++;
+    return `${ind}${mkTag(obid, cbid, `&lt;<span class="t-xtag">${esc(tag)}</span>${attrs}&gt;`)}${esc(t)}${mkTag(cbid, obid, `&lt;/<span class="t-xtag">${esc(tag)}</span>&gt;`)}`;
+  }
+  const obid = bIdCounter++, cbid = bIdCounter++;
+  const inner=kids.map(c=>serHlXML(c,d+1)).filter(Boolean).join('\n');
+  return `${ind}${mkTag(obid, cbid, `&lt;<span class="t-xtag">${esc(tag)}</span>${attrs}&gt;`)}\n${inner}\n${ind}${mkTag(cbid, obid, `&lt;/<span class="t-xtag">${esc(tag)}</span>&gt;`)}`;
+}
+
+/* ══════════════════════════════════════════
+   HTML
+══════════════════════════════════════════ */
+const VOID = new Set(['area','base','br','col','embed','hr','img','input','link','meta','param','source','track','wbr']);
+
+function formatHTML(s) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(s, 'text/html');
+  rawOutput = serHTML(doc.documentElement, 0);
+  return { html: serHlHTML(doc.documentElement, 0), fixed: false };
+}
+
+function serHTML(node, d) {
+  const ind='    '.repeat(d);
+  if (node.nodeType===3){const t=node.textContent.trim();return t?ind+t:'';}
+  if (node.nodeType===8) return `${ind}<!-- ${node.textContent.trim()} -->`;
+  const tag=node.tagName.toLowerCase();
+  const attrs=Array.from(node.attributes||[]).map(a=>` ${a.name}="${a.value}"`).join('');
+  if (VOID.has(tag)) return `${ind}<${tag}${attrs}>`;
+  const kids=Array.from(node.childNodes||[]);
+  if (!kids.length) return `${ind}<${tag}${attrs}></${tag}>`;
+  if (kids.length===1&&kids[0].nodeType===3){
+    const t=kids[0].textContent.trim();
+    return t?`${ind}<${tag}${attrs}>${t}</${tag}>`:`${ind}<${tag}${attrs}></${tag}>`;
+  }
+  const inner=kids.map(c=>serHTML(c,d+1)).filter(Boolean).join('\n');
+  return `${ind}<${tag}${attrs}>\n${inner}\n${ind}</${tag}>`;
+}
+
+function serHlHTML(node, d) {
+  const ind = '    '.repeat(d);
+  const col = bc(d);
+  if (node.nodeType===3){const t=node.textContent.trim();return t?ind+esc(t):'';}
+  if (node.nodeType===8) return `${ind}<span class="t-hcomm">&lt;!-- ${esc(node.textContent.trim())} --&gt;</span>`;
+  const tag = node.tagName.toLowerCase();
+  const attrs = Array.from(node.attributes||[]).map(a =>
+    ` <span class="t-hattr">${esc(a.name)}</span>=<span class="t-hval">&quot;${esc(a.value)}&quot;</span>`
+  ).join('');
+  const mkTag = (bid, mid, inner) =>
+    `<span class="b-pair" data-bid="${bid}" data-match="${mid}" style="color:${col};font-weight:600">${inner}</span>`;
+  if (VOID.has(tag)) {
+    const bid = bIdCounter++;
+    return `${ind}${mkTag(bid, -1, `&lt;<span class="t-htag">${esc(tag)}</span>${attrs}&gt;`)}`;
+  }
+  const kids = Array.from(node.childNodes||[]);
+  if (!kids.length) {
+    const obid = bIdCounter++, cbid = bIdCounter++;
+    return `${ind}${mkTag(obid, cbid, `&lt;<span class="t-htag">${esc(tag)}</span>${attrs}&gt;`)}${mkTag(cbid, obid, `&lt;/<span class="t-htag">${esc(tag)}</span>&gt;`)}`;
+  }
+  if (kids.length===1&&kids[0].nodeType===3) {
+    const t=kids[0].textContent.trim();
+    const obid = bIdCounter++, cbid = bIdCounter++;
+    return t
+      ? `${ind}${mkTag(obid, cbid, `&lt;<span class="t-htag">${esc(tag)}</span>${attrs}&gt;`)}${esc(t)}${mkTag(cbid, obid, `&lt;/<span class="t-htag">${esc(tag)}</span>&gt;`)}`
+      : `${ind}${mkTag(obid, cbid, `&lt;<span class="t-htag">${esc(tag)}</span>${attrs}&gt;`)}${mkTag(cbid, obid, `&lt;/<span class="t-htag">${esc(tag)}</span>&gt;`)}`;
+  }
+  const obid = bIdCounter++, cbid = bIdCounter++;
+  const inner=kids.map(c=>serHlHTML(c,d+1)).filter(Boolean).join('\n');
+  return `${ind}${mkTag(obid, cbid, `&lt;<span class="t-htag">${esc(tag)}</span>${attrs}&gt;`)}\n${inner}\n${ind}${mkTag(cbid, obid, `&lt;/<span class="t-htag">${esc(tag)}</span>&gt;`)}`;
+}
+
+/* ══════════════════════════════════════════
+   SQL
+══════════════════════════════════════════ */
+const SQL_KWS = ['SELECT','FROM','WHERE','AND','OR','NOT','IN','IS','NULL','AS','ON',
+  'JOIN','LEFT','RIGHT','INNER','OUTER','FULL','CROSS','INSERT','INTO','VALUES',
+  'UPDATE','SET','DELETE','CREATE','TABLE','ALTER','DROP','INDEX','VIEW','DATABASE',
+  'ORDER','BY','GROUP','HAVING','LIMIT','OFFSET','DISTINCT','ALL','UNION','WITH',
+  'CASE','WHEN','THEN','ELSE','END','EXISTS','BETWEEN','LIKE','RETURNING','BEGIN',
+  'COMMIT','ROLLBACK','TRANSACTION','IF','ASC','DESC','FETCH','NEXT','ROWS','ONLY',
+  'WINDOW','OVER','PARTITION','TRUNCATE','MERGE','USING','REPLACE','EXPLAIN','ANALYZE'];
+const SQL_KW_RE = new RegExp(`\\b(${SQL_KWS.join('|')})\\b`,'gi');
+
+function formatSQL(s) {
+  const majors = ['SELECT','FROM','WHERE','LEFT JOIN','RIGHT JOIN','INNER JOIN','JOIN',
+    'GROUP BY','ORDER BY','HAVING','LIMIT','OFFSET','UNION','INSERT INTO','UPDATE',
+    'DELETE FROM','WITH','SET','VALUES','ON CONFLICT'];
+  let out = s.trim();
+  majors.forEach(kw => {
+    out = out.replace(new RegExp(`\\b${kw}\\b`,'gi'), '\n'+kw.toUpperCase());
+  });
+  rawOutput = out.replace(/\n\s+/g,'\n  ').trim();
+  const html = rawOutput.split('\n').map(line => {
+    let r = esc(line);
+    r = r.replace(/('(?:[^'\\]|\\.)*')/g, m=>`<span class="t-sstr">${m}</span>`);
+    r = r.replace(SQL_KW_RE, m=>`<span class="t-skw">${m.toUpperCase()}</span>`);
+    r = r.replace(/\b([a-zA-Z_]\w*)\s*(?=\()/g,(m,fn)=>
+      SQL_KWS.includes(fn.toUpperCase())?m:`<span class="t-sfn">${fn}</span>`);
+    r = r.replace(/\b(\d+\.?\d*)\b/g, n=>`<span class="t-snum">${n}</span>`);
+    return r;
+  }).join('\n');
+  return { html, fixed: false };
+}
+
+/* ══════════════════════════════════════════
+   YAML
+══════════════════════════════════════════ */
+function formatYAML(s) {
+  rawOutput = s.trim();
+  const html = rawOutput.split('\n').map(line => {
+    if (/^\s*#/.test(line)) return `<span class="t-xcomm">${esc(line)}</span>`;
+    return esc(line).replace(/^(\s*)([\w\-\.]+)(\s*:\s*)(.*)/, (_,ind,k,sep,v)=>
+      `${esc(ind)}<span class="t-key">${esc(k)}</span><span class="t-punct">${esc(sep)}</span>${v?`<span class="t-str">${esc(v)}</span>`:''}`);
+  }).join('\n');
+  return { html, fixed: false };
+}
+
+/* ══════════════════════════════════════════
+   CSV
+══════════════════════════════════════════ */
+function formatCSV(s) {
+  const lines = s.trim().split('\n').filter(Boolean);
+  const sep = detectSep(lines[0]) || ',';
+  rawOutput = s.trim();
+  const rows = lines.map(l => l.split(sep).map(c => c.trim().replace(/^"|"$/g,'')));
+  const widths = Array.from({length:rows[0].length},(_,i)=>Math.max(...rows.map(r=>(r[i]||'').length)));
+  const html = rows.map((row,ri) => {
+    const cells = row.map((c,ci) => {
+      const p = c.padEnd(widths[ci]);
+      if (ri===0) return sp('t-key',p);
+      return /^-?\d+\.?\d*$/.test(c.trim()) ? sp('t-num',p) : sp('t-str',p);
+    }).join(sp('t-punct',' │ '));
+    if (ri===1) {
+      const div = widths.map(w=>'─'.repeat(w)).join('─┼─');
+      return sp('t-punct',div) + '\n' + cells;
+    }
+    return cells;
+  }).join('\n');
+  return { html, fixed: false };
+}
+
+/* ══════════════════════════════════════════
+   Input Compress
+══════════════════════════════════════════ */
+function resetCursor(ta, hl) {
+  ta.setSelectionRange(0, 0);
+  ta.scrollTop = 0;
+  if (hl) hl.scrollTop = 0;
+}
+
+function toggleInputCompress() {
+  const ta  = document.getElementById('input');
+  const hl  = document.getElementById('input-hl');
+  const btn = document.getElementById('btn-input-compress');
+  if (!ta.value.trim()) { showToast(t('toast-no-input')); return; }
+
+  isInputCompressed = !isInputCompressed;
+  const svgPath = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18"/></svg>`;
+
+  if (isInputCompressed) {
+    inputRaw = ta.value;
+    const fmt = detectFormat(inputRaw);
+    let compressed = inputRaw;
+    try {
+      switch (fmt) {
+        case 'JSON': compressed = JSON.stringify(JSON.parse(inputRaw)); break;
+        case 'XML':
+        case 'HTML': compressed = inputRaw.replace(/>\s+</g,'><').replace(/\s+/g,' ').replace(/\n/g,'').trim(); break;
+        case 'SQL':  compressed = inputRaw.replace(/\s+/g,' ').trim(); break;
+        default:     compressed = inputRaw.split('\n').map(l=>l.trim()).filter(Boolean).join(' ');
+      }
+    } catch(e) { compressed = inputRaw.replace(/[\r\n]+/g,' ').replace(/\s{2,}/g,' ').trim(); }
+    ta.value = compressed;
+    hl.innerHTML = esc(compressed);
+    resetCursor(ta, hl);
+    btn.classList.add('active');
+    btn.querySelector('span').textContent = t('restore');
+    updateBadge(fmt);
+  } else {
+    ta.value = inputRaw;
+    inputRaw = '';
+    syncInputHL();
+    resetCursor(ta, hl);
+    btn.classList.remove('active');
+    btn.querySelector('span').textContent = t('compress');
+    updateBadge(detectFormat(ta.value));
+  }
+}
+
+/* ══════════════════════════════════════════
+   Output Compress
+══════════════════════════════════════════ */
+function getCompressed() {
+  const inputVal = document.getElementById('input').value.trim();
+  if (!inputVal.includes('\n')) return inputVal;
+  try {
+    switch (currentFormat) {
+      case 'JSON': return JSON.stringify(JSON.parse(rawOutput));
+      case 'XML':
+      case 'HTML': return rawOutput.replace(/>\s+</g,'><').replace(/\s+/g,' ').replace(/\n/g,'').trim();
+      case 'SQL':  return rawOutput.replace(/\s+/g,' ').trim();
+      default:     return rawOutput.split('\n').map(l=>l.trim()).filter(Boolean).join(' ');
+    }
+  } catch(e) { return inputVal.replace(/\s+/g,' '); }
+}
+
+function toggleCompress() {
+  if (!rawOutput) { showToast(t('toast-no-compress')); return; }
+  const out = document.getElementById('output');
+  const btn = document.getElementById('btn-compress');
+  isCompressed = !isCompressed;
+  if (isCompressed) {
+    const text = getCompressed();
+    out.innerHTML = `<span class="t-str">${esc(text)}</span>`;
+    out.classList.add('compressed');
+    btn.classList.add('active');
+    btn.querySelector('span').textContent = t('restore');
+    showToast(t('toast-compressed'));
+  } else {
+    restoreFormatted();
+    btn.classList.remove('active');
+    btn.querySelector('span').textContent = t('compress');
+  }
+}
+
+function restoreFormatted() {
+  if (!rawOutput) return;
+  const out = document.getElementById('output');
+  out.classList.remove('compressed');
+  bIdCounter = 0;
+  try {
+    let html;
+    switch (currentFormat) {
+      case 'JSON': html = highlightJSON(rawOutput); break;
+      case 'XML':  { const doc = new DOMParser().parseFromString(rawOutput,'application/xml'); html = serHlXML(doc, 0); break; }
+      case 'HTML': { const doc = new DOMParser().parseFromString(rawOutput,'text/html'); html = serHlHTML(doc.documentElement, 0); break; }
+      case 'SQL':  html = rawOutput.split('\n').map(line => { let r=esc(line); r=r.replace(/('(?:[^'\\]|\\.)*')/g,m=>`<span class="t-sstr">${m}</span>`); r=r.replace(SQL_KW_RE,m=>`<span class="t-skw">${m.toUpperCase()}</span>`); r=r.replace(/\b([a-zA-Z_]\w*)\s*(?=\()/g,(m,fn)=>SQL_KWS.includes(fn.toUpperCase())?m:`<span class="t-sfn">${fn}</span>`); r=r.replace(/\b(\d+\.?\d*)\b/g,n=>`<span class="t-snum">${n}</span>`); return r; }).join('\n'); break;
+      case 'YAML': html = rawOutput.split('\n').map(line => { if(/^\s*#/.test(line)) return `<span class="t-xcomm">${esc(line)}</span>`; return esc(line).replace(/^(\s*)([\w\-\.]+)(\s*:\s*)(.*)/,(_,ind,k,sep,v)=>`${esc(ind)}<span class="t-key">${esc(k)}</span><span class="t-punct">${esc(sep)}</span>${v?`<span class="t-str">${esc(v)}</span>`:''}`); }).join('\n'); break;
+      case 'KV':   html = formatKV(document.getElementById('input').value); break;
+      default: html = esc(rawOutput);
+    }
+    out.innerHTML = (wasAutoFixed ? `<span class="info-msg">🔧 ${lang==='zh'?'已自动修复非标准格式':'Auto-fixed non-standard format'}</span>` : '') + html;
+  } catch(e) { out.innerHTML = esc(rawOutput); }
+}
+
+/* ══════════════════════════════════════════
+   Main format dispatch
+══════════════════════════════════════════ */
+function format() {
+  bIdCounter = 0;
+  isCompressed = false;
+  wasAutoFixed = false;
+  const btn = document.getElementById('btn-compress');
+  if (btn) { btn.classList.remove('active'); btn.querySelector('span').textContent = t('compress'); }
+  const input = document.getElementById('input').value;
+  const out = document.getElementById('output');
+  if (!input.trim()) { showToast(t('toast-no-input')); return; }
+
+  const fmt = detectFormat(input);
+  currentFormat = fmt;
+  updateBadge(fmt);
+  out.classList.remove('empty');
+
+  try {
+    let result;
+    switch(fmt) {
+      case 'JSON': result = formatJSON(input); break;
+      case 'XML':  result = formatXML(input);  break;
+      case 'HTML': result = formatHTML(input); break;
+      case 'SQL':  result = formatSQL(input);  break;
+      case 'YAML': result = formatYAML(input); break;
+      case 'CSV':  result = formatCSV(input);  break;
+      case 'KV':
+        rawOutput = '';
+        result = { html: formatKV(input), fixed: false };
+        break;
+      default:
+        rawOutput = input.trim();
+        result = { html: esc(rawOutput), fixed: false };
+        showToast(t('toast-unknown'));
+    }
+    wasAutoFixed = result.fixed;
+    const fixedBanner = wasAutoFixed
+      ? `<span class="info-msg">🔧 ${lang==='zh'?'已自动修复非标准格式':'Auto-fixed non-standard format'}</span>`
+      : '';
+    out.innerHTML = fixedBanner + result.html;
+    if (wasAutoFixed) showToast(t('toast-fixed'));
+  } catch(e) {
+    out.innerHTML = `<span class="error-msg">❌ ${esc(e.message)}</span>`;
+    rawOutput = '';
+  }
+}
+
+function onInput() {
+  const v = document.getElementById('input').value;
+  updateBadge(v.trim() ? detectFormat(v) : 'unknown');
+  if (v.includes('\n')) {
+    syncInputHL();
+  } else {
+    document.getElementById('input-hl').innerHTML = esc(v);
+  }
+}
+
+function scheduleFmt() { setTimeout(() => { syncInputHL(); format(); }, 60); }
+
+function updateBadge(fmt) {
+  const b = document.getElementById('fmt-badge');
+  b.textContent = fmt === 'unknown' ? t('undetected') : fmt;
+  b.className = 'badge' + (fmt !== 'unknown' ? ' detected' : '');
+}
+
+function renderEmptyState() {
+  const out = document.getElementById('output');
+  out.innerHTML = `<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><p>${t('empty-p')}</p><small>${t('empty-hint')}</small></div>`;
+  out.classList.add('empty');
+}
+
+function clearInput() {
+  document.getElementById('input').value = '';
+  document.getElementById('input-hl').innerHTML = '';
+  renderEmptyState();
+  updateBadge('unknown');
+  rawOutput = ''; currentFormat = ''; isCompressed = false; wasAutoFixed = false;
+  isInputCompressed = false; inputRaw = '';
+  const ibtn = document.getElementById('btn-input-compress');
+  if (ibtn) { ibtn.classList.remove('active'); ibtn.querySelector('span').textContent = t('compress'); }
+  const cbtn = document.getElementById('btn-compress');
+  if (cbtn) { cbtn.classList.remove('active'); cbtn.querySelector('span').textContent = t('compress'); }
+}
+
+function copyOutput() {
+  if (!rawOutput) { showToast(t('toast-no-copy')); return; }
+  const text = isCompressed ? getCompressed() : rawOutput;
+  navigator.clipboard.writeText(text).then(() => showToast(t('toast-copied')));
+}
+
+function downloadOutput() {
+  if (!rawOutput) { showToast(t('toast-no-download')); return; }
+  const ext = {JSON:'json',XML:'xml',HTML:'html',SQL:'sql',YAML:'yaml',CSV:'csv',KV:'txt'};
+  const text = isCompressed ? getCompressed() : rawOutput;
+  const suffix = isCompressed ? '.min' : '';
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text],{type:'text/plain'}));
+  a.download = `formatted${suffix}.${ext[currentFormat]||'txt'}`;
+  a.click();
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+/* ══════════════════════════════════════════
+   Event listeners
+══════════════════════════════════════════ */
+document.getElementById('output').addEventListener('click', e => {
+  const span = e.target.closest('.b-pair');
+  document.querySelectorAll('#output .b-active').forEach(el => el.classList.remove('b-active'));
+  if (!span) return;
+  span.classList.add('b-active');
+  const mid = span.dataset.match;
+  if (mid !== '-1') {
+    const match = document.querySelector(`#output .b-pair[data-bid="${mid}"]`);
+    if (match) match.classList.add('b-active');
+  }
+});
+
+document.getElementById('input').addEventListener('scroll', function () {
+  const hl = document.getElementById('input-hl');
+  hl.scrollTop  = this.scrollTop;
+  hl.scrollLeft = this.scrollLeft;
+});
+
+document.getElementById('input').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+    const v = document.getElementById('input').value.trim();
+    if (v) { e.preventDefault(); format(); }
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); format(); }
+});
+
+// Init
+applyI18n();
+</script>
+</body>
+</html>
