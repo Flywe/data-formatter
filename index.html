@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>数据格式化工具</title>
+  <title>Data Formatter</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -30,11 +30,34 @@
       --sql-fn: #61AFEF;
       --html-tag: #E06C75;
       --html-attr: #4FC1FF;
-
-      /* ── 代码区字体 / 字号 / 行距（统一在此修改）── */
       --code-font: 'Cascadia Code', 'JetBrains Mono', 'Fira Code', monospace;
       --code-size: 13px;
       --code-lh:   1.7;
+    }
+
+    [data-theme="light"] {
+      --bg: #f5f6fa;
+      --surface: #ffffff;
+      --surface2: #eef0f6;
+      --border: #d0d3e0;
+      --accent: #5a5cf0;
+      --accent2: #20b087;
+      --text: #1e2030;
+      --muted: #7b8197;
+      --error: #e05252;
+      --success: #1a9e6e;
+      --json-key: #0070c1;
+      --json-str: #3c7a29;
+      --json-num: #b05a00;
+      --json-bool: #b02060;
+      --json-null: #888fa0;
+      --xml-tag: #b02060;
+      --xml-attr: #0070c1;
+      --xml-val: #3c7a29;
+      --sql-kw: #7c34c8;
+      --sql-fn: #1560c0;
+      --html-tag: #b02060;
+      --html-attr: #0070c1;
     }
 
     body {
@@ -44,25 +67,62 @@
       min-height: 100vh;
       display: flex;
       flex-direction: column;
+      transition: background .2s, color .2s;
     }
 
     header {
-      padding: 18px 28px;
+      padding: 12px 20px;
       border-bottom: 1px solid var(--border);
       display: flex;
       align-items: center;
       gap: 14px;
       background: var(--surface);
+      transition: background .2s, border-color .2s;
     }
     .logo {
-      width: 34px; height: 34px;
+      width: 32px; height: 32px;
       background: linear-gradient(135deg, var(--accent), var(--accent2));
       border-radius: 9px;
       display: grid; place-items: center;
-      font-size: 17px;
+      font-size: 16px;
+      flex-shrink: 0;
     }
-    header h1 { font-size: 17px; font-weight: 600; letter-spacing: -.2px; }
-    header p  { font-size: 12px; color: var(--muted); margin-top: 1px; }
+    .header-info { flex: 1; min-width: 0; }
+    header h1 { font-size: 16px; font-weight: 600; letter-spacing: -.2px; }
+    header p  { font-size: 11px; color: var(--muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .header-controls { display: flex; gap: 14px; align-items: center; flex-shrink: 0; }
+
+    /* ── Toggle switch ── */
+    .tog-group {
+      display: flex; align-items: center; gap: 7px;
+      cursor: pointer; user-select: none;
+    }
+    .tog-lbl {
+      font-size: 11px; font-weight: 600; color: var(--muted);
+      transition: color .2s; letter-spacing: .3px;
+    }
+    .tog-lbl.active { color: var(--text); }
+    .tog {
+      position: relative;
+      width: 34px; height: 18px;
+      background: var(--border);
+      border-radius: 9px;
+      transition: background .25s;
+      flex-shrink: 0;
+    }
+    .tog.on { background: var(--accent); }
+    .tog-knob {
+      position: absolute;
+      top: 2px; left: 2px;
+      width: 14px; height: 14px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform .25s cubic-bezier(.4,0,.2,1);
+      box-shadow: 0 1px 3px rgba(0,0,0,.35);
+    }
+    .tog.on .tog-knob { transform: translateX(16px); }
+    .tog-sep { width: 1px; height: 18px; background: var(--border); margin: 0 2px; }
 
     .main {
       flex: 1;
@@ -70,7 +130,7 @@
       grid-template-columns: 1fr 1fr;
       gap: 0;
       overflow: hidden;
-      height: calc(100vh - 65px);
+      height: calc(100vh - 57px);
     }
 
     .pane {
@@ -78,6 +138,7 @@
       flex-direction: column;
       border-right: 1px solid var(--border);
       overflow: hidden;
+      transition: border-color .2s;
     }
     .pane:last-child { border-right: none; }
 
@@ -85,13 +146,14 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 10px 16px;
+      padding: 8px 14px;
       border-bottom: 1px solid var(--border);
       background: var(--surface);
-      min-height: 46px;
+      min-height: 44px;
+      transition: background .2s, border-color .2s;
     }
     .pane-title {
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: .8px;
@@ -107,12 +169,12 @@
       border: 1px solid var(--border);
       transition: all .2s;
     }
-    .badge.detected { color: var(--accent2); background: rgba(78,204,163,.1); border-color: var(--accent2); }
+    .badge.detected { color: var(--accent2); background: rgba(78,204,163,.12); border-color: var(--accent2); }
 
-    .actions { display: flex; gap: 8px; align-items: center; }
+    .actions { display: flex; gap: 6px; align-items: center; }
     .btn {
       display: flex; align-items: center; gap: 5px;
-      padding: 5px 11px;
+      padding: 4px 10px;
       border-radius: 7px;
       border: 1px solid var(--border);
       background: var(--surface2);
@@ -129,10 +191,9 @@
 
     .input-wrap { flex: 1; position: relative; overflow: hidden; }
 
-    /* 高亮渲染层：绝对定位在 textarea 下方 */
     .input-hl {
       position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-      padding: 16px;
+      padding: 14px;
       font-family: var(--code-font);
       font-size: var(--code-size);
       line-height: var(--code-lh);
@@ -143,20 +204,21 @@
       z-index: 0;
       tab-size: 2;
       background: var(--bg);
+      transition: background .2s;
     }
 
     textarea {
       width: 100%; height: 100%;
-      background: transparent;        /* 背景交给高亮层 */
-      color: transparent;             /* 原始文字透明，仅留光标 */
+      background: transparent;
+      color: transparent;
       caret-color: var(--text);
       border: none; outline: none; resize: none;
       font-family: var(--code-font);
       font-size: var(--code-size);
       line-height: var(--code-lh);
-      padding: 16px;
+      padding: 14px;
       tab-size: 2;
-      word-break: break-all;          /* 与 .input-hl 保持一致，光标位置对齐 */
+      word-break: break-all;
       position: relative;
       z-index: 1;
     }
@@ -167,11 +229,12 @@
       flex: 1;
       overflow: auto;
       background: var(--bg);
-      padding: 16px;
+      padding: 14px;
       font-family: var(--code-font);
       font-size: var(--code-size);
       line-height: var(--code-lh);
       white-space: pre;
+      transition: background .2s;
     }
     .output-wrap.empty {
       display: flex; align-items: center; justify-content: center;
@@ -182,25 +245,35 @@
     .empty-state p { font-size: 13px; }
     .empty-state small { font-size: 11px; color: var(--border); display: block; margin-top: 4px; }
 
-    .t-key   { color: #4FC1FF; }
-    .t-str   { color: #98C379; }
-    .t-num   { color: #D19A66; }
-    .t-bool  { color: #E06C75; }
-    .t-null  { color: #7F848E; }
+    .t-key   { color: var(--json-key); }
+    .t-str   { color: var(--json-str); }
+    .t-num   { color: var(--json-num); }
+    .t-bool  { color: var(--json-bool); }
+    .t-null  { color: var(--json-null); }
     .t-punct { color: #ABB2BF; }
-    .t-xtag  { color: #E06C75; }
-    .t-xattr { color: #4FC1FF; }
-    .t-xval  { color: #98C379; }
+    [data-theme="light"] .t-punct { color: #666c80; }
+    .t-xtag  { color: var(--xml-tag); }
+    .t-xattr { color: var(--xml-attr); }
+    .t-xval  { color: var(--xml-val); }
     .t-xcomm { color: #5C6370; font-style: italic; }
-    .t-htag  { color: #E06C75; }
-    .t-hattr { color: #4FC1FF; }
-    .t-hval  { color: #98C379; }
+    [data-theme="light"] .t-xcomm { color: #7a8294; }
+    .t-htag  { color: var(--html-tag); }
+    .t-hattr { color: var(--html-attr); }
+    .t-hval  { color: var(--json-str); }
     .t-hcomm { color: #5C6370; font-style: italic; }
-    .t-skw   { color: #C678DD; font-weight: 700; }
-    .t-sfn   { color: #61AFEF; }
-    .t-sstr  { color: #98C379; }
-    .t-snum  { color: #D19A66; }
-    .error-msg { color: #f87171; font-family: 'Segoe UI', sans-serif; font-size: 13px; }
+    [data-theme="light"] .t-hcomm { color: #7a8294; }
+    .t-skw   { color: var(--sql-kw); font-weight: 700; }
+    .t-sfn   { color: var(--sql-fn); }
+    .t-sstr  { color: var(--json-str); }
+    .t-snum  { color: var(--json-num); }
+    .error-msg { color: var(--error); font-family: 'Segoe UI', sans-serif; font-size: 13px; }
+    .info-msg  { color: var(--accent2); font-family: 'Segoe UI', sans-serif; font-size: 12px; margin-bottom: 8px; display: block; }
+
+    /* KV table format */
+    .t-kv-key { color: var(--json-key); font-weight: 600; }
+    .t-kv-sep { color: var(--muted); }
+    .t-kv-val { color: var(--json-str); }
+    .t-kv-val.long { color: var(--json-num); }
 
     #toast {
       position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
@@ -217,7 +290,9 @@
 
     .b-pair { cursor: pointer; border-radius: 2px; transition: background .1s; }
     .b-pair:hover { background: rgba(255,255,255,.1); }
+    [data-theme="light"] .b-pair:hover { background: rgba(0,0,0,.08); }
     .b-active { background: rgba(255,215,0,.2) !important; outline: 1px solid currentColor; border-radius: 2px; }
+    [data-theme="light"] .b-active { background: rgba(180,140,0,.15) !important; }
 
     .btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
     .btn.active:hover { opacity: .85; }
@@ -226,6 +301,7 @@
     @media (max-width: 700px) {
       .main { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
       .pane { border-right: none; border-bottom: 1px solid var(--border); }
+      header p { display: none; }
     }
   </style>
 </head>
@@ -233,59 +309,73 @@
 
 <header>
   <div class="logo">✦</div>
-  <div>
-    <h1>数据格式化工具</h1>
-    <p>自动识别 · JSON / XML / HTML / SQL / YAML / CSV</p>
+  <div class="header-info">
+    <h1>Data Formatter</h1>
+    <p id="hdr-sub">Automatic recognition · JSON / XML / HTML / SQL / YAML / CSV / KV</p>
+  </div>
+  <div class="header-controls">
+    <!-- Language toggle: EN(left/off) → ZH(right/on) -->
+    <div class="tog-group" onclick="toggleLang()" title="Switch Language">
+      <span class="tog-lbl active" id="lbl-lang-en">EN</span>
+      <div class="tog" id="tog-lang"><div class="tog-knob"></div></div>
+      <span class="tog-lbl" id="lbl-lang-zh">中文</span>
+    </div>
+    <div class="tog-sep"></div>
+    <!-- Theme toggle: 🌙(left/off) → ☀️(right/on) -->
+    <div class="tog-group" onclick="toggleTheme()" title="Toggle Theme">
+      <span class="tog-lbl active" id="lbl-theme-dark">🌙</span>
+      <div class="tog" id="tog-theme"><div class="tog-knob"></div></div>
+      <span class="tog-lbl" id="lbl-theme-light">☀️</span>
+    </div>
   </div>
 </header>
 
 <div class="main">
   <div class="pane">
     <div class="pane-header">
-      <span class="pane-title">输入</span>
+      <span class="pane-title" id="lbl-input">Input</span>
       <div class="actions">
-        <span id="fmt-badge" class="badge">未检测</span>
+        <span id="fmt-badge" class="badge" data-i18n="undetected">Undetected</span>
         <button class="btn" id="btn-input-compress" onclick="toggleInputCompress()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18"/></svg>压缩
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18"/></svg><span data-i18n="compress">Compress</span>
         </button>
         <button class="btn" onclick="clearInput()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>清空
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg><span data-i18n="clear">Clear</span>
         </button>
         <button class="btn primary" onclick="format()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h10M4 18h14"/></svg>格式化
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h10M4 18h14"/></svg><span data-i18n="format">Format</span>
         </button>
       </div>
     </div>
     <div class="input-wrap">
       <div class="input-hl" id="input-hl" aria-hidden="true"></div>
       <textarea id="input"
-        placeholder="粘贴你的数据，支持 JSON / XML / HTML / SQL / YAML / CSV…&#10;&#10;粘贴后自动格式化 · Enter 格式化 · Shift+Enter 换行"
+        spellcheck="false"
         oninput="onInput()"
-        onpaste="scheduleFmt()"
-        spellcheck="false"></textarea>
+        onpaste="scheduleFmt()"></textarea>
     </div>
   </div>
 
   <div class="pane">
     <div class="pane-header">
-      <span class="pane-title">输出</span>
+      <span class="pane-title" id="lbl-output">Output</span>
       <div class="actions">
         <button class="btn" id="btn-compress" onclick="toggleCompress()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18"/></svg>压缩
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18"/></svg><span data-i18n="compress">Compress</span>
         </button>
         <button class="btn" onclick="copyOutput()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>复制
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg><span data-i18n="copy">Copy</span>
         </button>
         <button class="btn" onclick="downloadOutput()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>下载
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span data-i18n="download">Download</span>
         </button>
       </div>
     </div>
     <div class="output-wrap empty" id="output">
-      <div class="empty-state">
+      <div class="empty-state" id="empty-state-content">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-        <p>格式化结果将显示在这里</p>
-        <small>粘贴自动格式化 · Enter 格式化 · Shift+Enter 换行</small>
+        <p data-i18n="empty-p">Formatted result will appear here</p>
+        <small data-i18n="empty-hint">Paste to auto-format · Enter to format · Shift+Enter for newline</small>
       </div>
     </div>
   </div>
@@ -294,6 +384,111 @@
 <div id="toast"></div>
 
 <script>
+/* ══════════════════════════════════════════
+   i18n
+══════════════════════════════════════════ */
+const I18N = {
+  en: {
+    'hdr-sub':      'Automatic recognition · JSON / XML / HTML / SQL / YAML / CSV / KV',
+    'lbl-input':    'Input',
+    'lbl-output':   'Output',
+    'undetected':   'Undetected',
+    'compress':     'Compress',
+    'restore':      'Restore',
+    'clear':        'Clear',
+    'format':       'Format',
+    'copy':         'Copy',
+    'download':     'Download',
+    'empty-p':      'Formatted result will appear here',
+    'empty-hint':   'Paste to auto-format · Enter to format · Shift+Enter for newline',
+    'placeholder':  'Paste your data here. Supports JSON / XML / HTML / SQL / YAML / CSV / KV…\n\nAuto-format on paste · Enter to format · Shift+Enter for newline',
+    'toast-no-input':    '⚠️ Please enter data first',
+    'toast-no-compress': '⚠️ Nothing to compress',
+    'toast-no-copy':     '⚠️ Nothing to copy',
+    'toast-no-download': '⚠️ Nothing to download',
+    'toast-copied':      '✅ Copied to clipboard',
+    'toast-compressed':  '📦 Compressed',
+    'toast-unknown':     '⚠️ Unknown format, output as-is',
+    'toast-fixed':       '🔧 Auto-fixed and formatted',
+    'lang-btn':          '中文',
+    'theme-btn-to-light':'Light',
+    'theme-btn-to-dark': 'Dark',
+  },
+  zh: {
+    'hdr-sub':      '自动识别 · JSON / XML / HTML / SQL / YAML / CSV / KV',
+    'lbl-input':    '输入',
+    'lbl-output':   '输出',
+    'undetected':   '未检测',
+    'compress':     '压缩',
+    'restore':      '还原',
+    'clear':        '清空',
+    'format':       '格式化',
+    'copy':         '复制',
+    'download':     '下载',
+    'empty-p':      '格式化结果将显示在这里',
+    'empty-hint':   '粘贴自动格式化 · Enter 格式化 · Shift+Enter 换行',
+    'placeholder':  '粘贴你的数据，支持 JSON / XML / HTML / SQL / YAML / CSV / KV…\n\n粘贴后自动格式化 · Enter 格式化 · Shift+Enter 换行',
+    'toast-no-input':    '⚠️ 请先输入数据',
+    'toast-no-compress': '⚠️ 暂无内容可压缩',
+    'toast-no-copy':     '⚠️ 暂无内容可复制',
+    'toast-no-download': '⚠️ 暂无内容可下载',
+    'toast-copied':      '✅ 已复制到剪贴板',
+    'toast-compressed':  '📦 已压缩',
+    'toast-unknown':     '⚠️ 未识别格式，已原样输出',
+    'toast-fixed':       '🔧 已自动修复并格式化',
+    'lang-btn':          'English',
+    'theme-btn-to-light':'浅色',
+    'theme-btn-to-dark': '深色',
+  }
+};
+
+let lang = 'en';
+
+function t(key) { return (I18N[lang] || I18N.en)[key] || key; }
+
+function applyI18n() {
+  document.getElementById('input').placeholder = t('placeholder');
+  document.getElementById('hdr-sub').textContent = t('hdr-sub');
+  document.getElementById('lbl-input').textContent = t('lbl-input');
+  document.getElementById('lbl-output').textContent = t('lbl-output');
+  const badge = document.getElementById('fmt-badge');
+  if ([I18N.en['undetected'], I18N.zh['undetected']].includes(badge.textContent)) {
+    badge.textContent = t('undetected');
+  }
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.dataset.i18n;
+    if (key) el.textContent = t(key);
+  });
+}
+
+function toggleLang() {
+  lang = lang === 'en' ? 'zh' : 'en';
+  const isZH = lang === 'zh';
+  document.getElementById('tog-lang').classList.toggle('on', isZH);
+  document.getElementById('lbl-lang-en').classList.toggle('active', !isZH);
+  document.getElementById('lbl-lang-zh').classList.toggle('active', isZH);
+  applyI18n();
+  const out = document.getElementById('output');
+  if (out.classList.contains('empty')) renderEmptyState();
+}
+
+/* ══════════════════════════════════════════
+   Theme
+══════════════════════════════════════════ */
+let currentTheme = 'dark';
+
+function toggleTheme() {
+  currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
+  const isLight = currentTheme === 'light';
+  document.documentElement.setAttribute('data-theme', currentTheme);
+  document.getElementById('tog-theme').classList.toggle('on', isLight);
+  document.getElementById('lbl-theme-dark').classList.toggle('active', !isLight);
+  document.getElementById('lbl-theme-light').classList.toggle('active', isLight);
+}
+
+/* ══════════════════════════════════════════
+   Utilities
+══════════════════════════════════════════ */
 const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const sp  = (cls, txt) => `<span class="${cls}">${esc(txt)}</span>`;
 
@@ -306,8 +501,119 @@ let bIdCounter = 0;
 let isCompressed = false;
 let isInputCompressed = false;
 let inputRaw = '';
+let wasAutoFixed = false;
 
-/* ── Input Highlight ── */
+/* ══════════════════════════════════════════
+   Auto-fix / repair helpers
+══════════════════════════════════════════ */
+
+// Fix common JSON issues and return parsed object, or throw
+function tryRepairJSON(s) {
+  // 1. Remove trailing commas before ] or }
+  let fixed = s.replace(/,\s*([\]}])/g, '$1');
+  // 2. Try direct parse
+  try { return { obj: JSON.parse(fixed), fixed }; } catch {}
+  // 3. Add missing quotes to unquoted keys
+  fixed = fixed.replace(/([{,]\s*)([a-zA-Z_$][a-zA-Z0-9_$]*)\s*:/g, '$1"$2":');
+  try { return { obj: JSON.parse(fixed), fixed }; } catch {}
+  // 4. Replace single-quoted strings with double-quoted
+  fixed = fixed.replace(/'([^'\\]*(\\.[^'\\]*)*)'/g, (_, inner) => '"' + inner.replace(/"/g, '\\"') + '"');
+  try { return { obj: JSON.parse(fixed), fixed }; } catch {}
+  // 5. Close unclosed brackets/braces
+  fixed = autoCloseBrackets(fixed);
+  try { return { obj: JSON.parse(fixed), fixed }; } catch {}
+  // 6. Missing opening bracket — try wrapping as object body
+  const asObj = `{${fixed}}`;
+  try { return { obj: JSON.parse(asObj), fixed: asObj }; } catch {}
+  // 7. Missing opening bracket — try wrapping as array body
+  const asArr = `[${fixed}]`;
+  try { return { obj: JSON.parse(asArr), fixed: asArr }; } catch {}
+  throw new Error('Cannot repair JSON');
+}
+
+function autoCloseBrackets(s) {
+  const stack = [];
+  const pairs = { '{': '}', '[': ']' };
+  const closes = new Set(['}', ']']);
+  let inStr = false, escape = false;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (escape) { escape = false; continue; }
+    if (c === '\\' && inStr) { escape = true; continue; }
+    if (c === '"') { inStr = !inStr; continue; }
+    if (inStr) continue;
+    if (pairs[c]) stack.push(pairs[c]);
+    else if (closes.has(c)) stack.pop();
+  }
+  // Close any remaining open brackets in reverse
+  while (stack.length) s += stack.pop();
+  return s;
+}
+
+// Fix XML: attempt to auto-close unclosed tags
+function tryRepairXML(s) {
+  // simple: parse and rely on DOMParser error recovery by wrapping
+  const parser = new DOMParser();
+  let doc = parser.parseFromString(s, 'application/xml');
+  if (!doc.querySelector('parsererror')) return { doc, fixed: s };
+  // wrap in a root element and retry
+  const wrapped = `<_root_>${s}</_root_>`;
+  doc = parser.parseFromString(wrapped, 'application/xml');
+  if (!doc.querySelector('parsererror')) {
+    // unwrap: return inner HTML
+    const root = doc.documentElement;
+    return { doc: null, fixedDoc: root, fixed: wrapped, wrapped: true };
+  }
+  throw new Error('XML parse failed');
+}
+
+// Fix HTML: DOMParser always succeeds for HTML
+function tryRepairHTML(s) {
+  const parser = new DOMParser();
+  return parser.parseFromString(s, 'text/html');
+}
+
+/* ══════════════════════════════════════════
+   KV (key=value;…) format — e.g. HTTP headers
+══════════════════════════════════════════ */
+function detectKV(s) {
+  // Pattern: optional [ ] wrapper, entries separated by ; or & or ,
+  // each entry is key=value
+  const stripped = s.trim().replace(/^\[|\]$/g, '');
+  const entries = stripped.split(/[;\n&]/).map(e => e.trim()).filter(Boolean);
+  if (entries.length < 2) return false;
+  const kvPairs = entries.map(e => {
+    const eq = e.indexOf('=');
+    if (eq < 1) return null;
+    return { key: e.slice(0, eq).trim(), val: e.slice(eq + 1).trim() };
+  });
+  if (kvPairs.filter(Boolean).length < entries.length * 0.7) return false;
+  return kvPairs.filter(Boolean);
+}
+
+function formatKV(s) {
+  const stripped = s.trim().replace(/^\[|\]$/g, '');
+  const entries = stripped.split(/[;\n&]/).map(e => e.trim()).filter(Boolean);
+  const kvPairs = entries.map(e => {
+    const eq = e.indexOf('=');
+    if (eq < 1) return { key: e, val: '' };
+    return { key: e.slice(0, eq).trim(), val: e.slice(eq + 1).trim() };
+  });
+
+  const maxKeyLen = Math.max(...kvPairs.map(p => p.key.length));
+  rawOutput = kvPairs.map(p => `${p.key.padEnd(maxKeyLen)} = ${p.val}`).join('\n');
+
+  return kvPairs.map(p => {
+    const paddedKey = p.key.padEnd(maxKeyLen);
+    const isLong = p.val.length > 60;
+    const valClass = isLong ? 't-kv-val long' : 't-kv-val';
+    return `<span class="t-kv-key">${esc(paddedKey)}</span><span class="t-kv-sep"> = </span><span class="${valClass}">${esc(p.val)}</span>`;
+  }).join('\n');
+}
+
+/* ══════════════════════════════════════════
+   Input Highlight
+══════════════════════════════════════════ */
 function hlInputJSON(s) {
   let depth = 0, out = '', i = 0, n = s.length;
   while (i < n) {
@@ -405,8 +711,6 @@ function syncInputHL() {
   const hl  = document.getElementById('input-hl');
   const val = ta.value;
   if (!val) { hl.innerHTML = ''; return; }
-
-  // 压缩数据（无换行）不高亮，仅显示纯文本
   if (!val.includes('\n')) { hl.innerHTML = esc(val); hl.scrollTop = ta.scrollTop; hl.scrollLeft = ta.scrollLeft; return; }
 
   const fmt = detectFormat(val);
@@ -424,11 +728,17 @@ function syncInputHL() {
   hl.scrollLeft = ta.scrollLeft;
 }
 
-/* ── Detection ── */
+/* ══════════════════════════════════════════
+   Detection
+══════════════════════════════════════════ */
 function detectFormat(s) {
   s = s.trim();
   if (!s) return 'unknown';
   if ((s[0]==='{' || s[0]==='[') && tryJSON(s)) return 'JSON';
+  // Possibly malformed JSON (starts with bracket but has syntax errors)
+  if ((s[0]==='{' || s[0]==='[') && looksLikeJSON(s)) return 'JSON';
+  // JSON body missing opening bracket: "key": value, ... or value, value, ...
+  if (looksLikeJSONBody(s)) return 'JSON';
   if (s.startsWith('<')) {
     if (/^<!DOCTYPE\s+html/i.test(s) || /<html[\s>]/i.test(s) ||
         /<(head|body|div|span|p|a\b|script|style|link|meta|title)[\s>/]/i.test(s)) return 'HTML';
@@ -441,9 +751,25 @@ function detectFormat(s) {
     const sep = detectSep(lines[0]);
     if (sep && lines.every(l => l.split(sep).length === lines[0].split(sep).length)) return 'CSV';
   }
+  // KV format: [k=v;k=v] or k=v;k=v
+  if (detectKV(s)) return 'KV';
   return 'unknown';
 }
+
 function tryJSON(s) { try { JSON.parse(s); return true; } catch { return false; } }
+
+function looksLikeJSON(s) {
+  return /["'a-zA-Z_]\s*:/.test(s) || /,\s*[\]}]/.test(s) || s.includes('null') || s.includes('true');
+}
+
+function looksLikeJSONBody(s) {
+  // Looks like object body: "key": value pairs
+  if (/"[^"]+"\s*:/.test(s)) return true;
+  // Looks like array body: starts with a JSON value and has commas
+  if (/^(\s*(".*?"|true|false|null|-?\d[\d.eE+\-]*)\s*,)/.test(s)) return true;
+  return false;
+}
+
 function detectSep(l) {
   if ((l.match(/,/g)||[]).length>1) return ',';
   if ((l.match(/\t/g)||[]).length>1) return '\t';
@@ -451,14 +777,23 @@ function detectSep(l) {
   return null;
 }
 
-/* ── JSON ── */
+/* ══════════════════════════════════════════
+   JSON
+══════════════════════════════════════════ */
 function formatJSON(s) {
-  const obj = JSON.parse(s);
+  let obj, fixed = false;
+  try {
+    obj = JSON.parse(s);
+  } catch {
+    const result = tryRepairJSON(s);
+    obj = result.obj;
+    fixed = true;
+  }
   rawOutput = JSON.stringify(obj, null, 4);
-  return highlightJSON(rawOutput);
+  return { html: highlightJSON(rawOutput), fixed };
 }
+
 function highlightJSON(s) {
-  // Pass 1: map bracket positions to IDs and find pairs
   const bracketAt = {}, pairs = {}, stack = [];
   let cnt = bIdCounter;
   for (let i = 0; i < s.length; i++) {
@@ -474,7 +809,6 @@ function highlightJSON(s) {
   }
   bIdCounter = cnt;
 
-  // Pass 2: build highlighted output
   let depth = 0, out = '', i = 0;
   const n = s.length;
   while (i < n) {
@@ -520,15 +854,29 @@ function highlightJSON(s) {
   return out;
 }
 
-/* ── XML ── */
+/* ══════════════════════════════════════════
+   XML
+══════════════════════════════════════════ */
 function formatXML(s) {
   const parser = new DOMParser();
-  const doc = parser.parseFromString(s,'application/xml');
-  const err = doc.querySelector('parsererror');
-  if (err) throw new Error('XML 解析失败：' + err.textContent.split('\n')[0]);
+  let doc = parser.parseFromString(s, 'application/xml');
+  let fixed = false;
+  if (doc.querySelector('parsererror')) {
+    // Try wrapping in a root
+    const wrapped = `<_root_>${s}</_root_>`;
+    doc = parser.parseFromString(wrapped, 'application/xml');
+    if (doc.querySelector('parsererror')) throw new Error('XML parse failed');
+    fixed = true;
+    // Serialize children of _root_
+    const root = doc.documentElement;
+    const children = Array.from(root.childNodes);
+    rawOutput = children.map(n => serXML(n, 0)).filter(Boolean).join('\n');
+    return { html: children.map(n => serHlXML(n, 0)).filter(Boolean).join('\n'), fixed };
+  }
   rawOutput = serXML(doc, 0);
-  return serHlXML(doc, 0);
+  return { html: serHlXML(doc, 0), fixed };
 }
+
 function serXML(node, d) {
   const ind = '    '.repeat(d);
   if (node.nodeType===3) { const t=node.textContent.trim(); return t?ind+t:''; }
@@ -544,6 +892,7 @@ function serXML(node, d) {
   const inner=kids.map(c=>serXML(c,d+1)).filter(Boolean).join('\n');
   return `${ind}<${tag}${attrs}>\n${inner}\n${ind}</${tag}>`;
 }
+
 function serHlXML(node, d) {
   const ind = '    '.repeat(d);
   const col = bc(d);
@@ -575,14 +924,18 @@ function serHlXML(node, d) {
   return `${ind}${mkTag(obid, cbid, `&lt;<span class="t-xtag">${esc(tag)}</span>${attrs}&gt;`)}\n${inner}\n${ind}${mkTag(cbid, obid, `&lt;/<span class="t-xtag">${esc(tag)}</span>&gt;`)}`;
 }
 
-/* ── HTML ── */
+/* ══════════════════════════════════════════
+   HTML
+══════════════════════════════════════════ */
+const VOID = new Set(['area','base','br','col','embed','hr','img','input','link','meta','param','source','track','wbr']);
+
 function formatHTML(s) {
   const parser = new DOMParser();
-  const doc = parser.parseFromString(s,'text/html');
+  const doc = parser.parseFromString(s, 'text/html');
   rawOutput = serHTML(doc.documentElement, 0);
-  return serHlHTML(doc.documentElement, 0);
+  return { html: serHlHTML(doc.documentElement, 0), fixed: false };
 }
-const VOID = new Set(['area','base','br','col','embed','hr','img','input','link','meta','param','source','track','wbr']);
+
 function serHTML(node, d) {
   const ind='    '.repeat(d);
   if (node.nodeType===3){const t=node.textContent.trim();return t?ind+t:'';}
@@ -599,6 +952,7 @@ function serHTML(node, d) {
   const inner=kids.map(c=>serHTML(c,d+1)).filter(Boolean).join('\n');
   return `${ind}<${tag}${attrs}>\n${inner}\n${ind}</${tag}>`;
 }
+
 function serHlHTML(node, d) {
   const ind = '    '.repeat(d);
   const col = bc(d);
@@ -631,7 +985,9 @@ function serHlHTML(node, d) {
   return `${ind}${mkTag(obid, cbid, `&lt;<span class="t-htag">${esc(tag)}</span>${attrs}&gt;`)}\n${inner}\n${ind}${mkTag(cbid, obid, `&lt;/<span class="t-htag">${esc(tag)}</span>&gt;`)}`;
 }
 
-/* ── SQL ── */
+/* ══════════════════════════════════════════
+   SQL
+══════════════════════════════════════════ */
 const SQL_KWS = ['SELECT','FROM','WHERE','AND','OR','NOT','IN','IS','NULL','AS','ON',
   'JOIN','LEFT','RIGHT','INNER','OUTER','FULL','CROSS','INSERT','INTO','VALUES',
   'UPDATE','SET','DELETE','CREATE','TABLE','ALTER','DROP','INDEX','VIEW','DATABASE',
@@ -650,7 +1006,7 @@ function formatSQL(s) {
     out = out.replace(new RegExp(`\\b${kw}\\b`,'gi'), '\n'+kw.toUpperCase());
   });
   rawOutput = out.replace(/\n\s+/g,'\n  ').trim();
-  return rawOutput.split('\n').map(line => {
+  const html = rawOutput.split('\n').map(line => {
     let r = esc(line);
     r = r.replace(/('(?:[^'\\]|\\.)*')/g, m=>`<span class="t-sstr">${m}</span>`);
     r = r.replace(SQL_KW_RE, m=>`<span class="t-skw">${m.toUpperCase()}</span>`);
@@ -659,26 +1015,32 @@ function formatSQL(s) {
     r = r.replace(/\b(\d+\.?\d*)\b/g, n=>`<span class="t-snum">${n}</span>`);
     return r;
   }).join('\n');
+  return { html, fixed: false };
 }
 
-/* ── YAML ── */
+/* ══════════════════════════════════════════
+   YAML
+══════════════════════════════════════════ */
 function formatYAML(s) {
   rawOutput = s.trim();
-  return rawOutput.split('\n').map(line => {
+  const html = rawOutput.split('\n').map(line => {
     if (/^\s*#/.test(line)) return `<span class="t-xcomm">${esc(line)}</span>`;
     return esc(line).replace(/^(\s*)([\w\-\.]+)(\s*:\s*)(.*)/, (_,ind,k,sep,v)=>
       `${esc(ind)}<span class="t-key">${esc(k)}</span><span class="t-punct">${esc(sep)}</span>${v?`<span class="t-str">${esc(v)}</span>`:''}`);
   }).join('\n');
+  return { html, fixed: false };
 }
 
-/* ── CSV ── */
+/* ══════════════════════════════════════════
+   CSV
+══════════════════════════════════════════ */
 function formatCSV(s) {
   const lines = s.trim().split('\n').filter(Boolean);
   const sep = detectSep(lines[0]) || ',';
   rawOutput = s.trim();
   const rows = lines.map(l => l.split(sep).map(c => c.trim().replace(/^"|"$/g,'')));
   const widths = Array.from({length:rows[0].length},(_,i)=>Math.max(...rows.map(r=>(r[i]||'').length)));
-  return rows.map((row,ri) => {
+  const html = rows.map((row,ri) => {
     const cells = row.map((c,ci) => {
       const p = c.padEnd(widths[ci]);
       if (ri===0) return sp('t-key',p);
@@ -690,10 +1052,12 @@ function formatCSV(s) {
     }
     return cells;
   }).join('\n');
+  return { html, fixed: false };
 }
 
-/* ── Input Compress ── */
-// 重置光标到文本起始位置并滚动至顶部，避免光标悬浮在空白区
+/* ══════════════════════════════════════════
+   Input Compress
+══════════════════════════════════════════ */
 function resetCursor(ta, hl) {
   ta.setSelectionRange(0, 0);
   ta.scrollTop = 0;
@@ -704,9 +1068,10 @@ function toggleInputCompress() {
   const ta  = document.getElementById('input');
   const hl  = document.getElementById('input-hl');
   const btn = document.getElementById('btn-input-compress');
-  if (!ta.value.trim()) { showToast('⚠️ 请先输入数据'); return; }
+  if (!ta.value.trim()) { showToast(t('toast-no-input')); return; }
 
   isInputCompressed = !isInputCompressed;
+  const svgPath = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18"/></svg>`;
 
   if (isInputCompressed) {
     inputRaw = ta.value;
@@ -725,7 +1090,7 @@ function toggleInputCompress() {
     hl.innerHTML = esc(compressed);
     resetCursor(ta, hl);
     btn.classList.add('active');
-    btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18"/></svg>还原`;
+    btn.querySelector('span').textContent = t('restore');
     updateBadge(fmt);
   } else {
     ta.value = inputRaw;
@@ -733,17 +1098,17 @@ function toggleInputCompress() {
     syncInputHL();
     resetCursor(ta, hl);
     btn.classList.remove('active');
-    btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18"/></svg>压缩`;
+    btn.querySelector('span').textContent = t('compress');
     updateBadge(detectFormat(ta.value));
   }
 }
 
-/* ── Compress ── */
+/* ══════════════════════════════════════════
+   Output Compress
+══════════════════════════════════════════ */
 function getCompressed() {
   const inputVal = document.getElementById('input').value.trim();
-  // 输入已是压缩格式（无换行），直接返回，与左侧保持一致
   if (!inputVal.includes('\n')) return inputVal;
-  // 输入是格式化数据，需按格式真正压缩
   try {
     switch (currentFormat) {
       case 'JSON': return JSON.stringify(JSON.parse(rawOutput));
@@ -756,21 +1121,21 @@ function getCompressed() {
 }
 
 function toggleCompress() {
-  if (!rawOutput) { showToast('⚠️ 暂无内容可压缩'); return; }
+  if (!rawOutput) { showToast(t('toast-no-compress')); return; }
   const out = document.getElementById('output');
   const btn = document.getElementById('btn-compress');
   isCompressed = !isCompressed;
   if (isCompressed) {
     const text = getCompressed();
-    out.innerHTML = `<span class="t-muted">${esc(text)}</span>`;
+    out.innerHTML = `<span class="t-str">${esc(text)}</span>`;
     out.classList.add('compressed');
     btn.classList.add('active');
-    btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18"/></svg>还原`;
-    showToast('📦 已压缩');
+    btn.querySelector('span').textContent = t('restore');
+    showToast(t('toast-compressed'));
   } else {
     restoreFormatted();
     btn.classList.remove('active');
-    btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18"/></svg>压缩`;
+    btn.querySelector('span').textContent = t('compress');
   }
 }
 
@@ -787,21 +1152,25 @@ function restoreFormatted() {
       case 'HTML': { const doc = new DOMParser().parseFromString(rawOutput,'text/html'); html = serHlHTML(doc.documentElement, 0); break; }
       case 'SQL':  html = rawOutput.split('\n').map(line => { let r=esc(line); r=r.replace(/('(?:[^'\\]|\\.)*')/g,m=>`<span class="t-sstr">${m}</span>`); r=r.replace(SQL_KW_RE,m=>`<span class="t-skw">${m.toUpperCase()}</span>`); r=r.replace(/\b([a-zA-Z_]\w*)\s*(?=\()/g,(m,fn)=>SQL_KWS.includes(fn.toUpperCase())?m:`<span class="t-sfn">${fn}</span>`); r=r.replace(/\b(\d+\.?\d*)\b/g,n=>`<span class="t-snum">${n}</span>`); return r; }).join('\n'); break;
       case 'YAML': html = rawOutput.split('\n').map(line => { if(/^\s*#/.test(line)) return `<span class="t-xcomm">${esc(line)}</span>`; return esc(line).replace(/^(\s*)([\w\-\.]+)(\s*:\s*)(.*)/,(_,ind,k,sep,v)=>`${esc(ind)}<span class="t-key">${esc(k)}</span><span class="t-punct">${esc(sep)}</span>${v?`<span class="t-str">${esc(v)}</span>`:''}`); }).join('\n'); break;
+      case 'KV':   html = formatKV(document.getElementById('input').value); break;
       default: html = esc(rawOutput);
     }
-    out.innerHTML = html;
+    out.innerHTML = (wasAutoFixed ? `<span class="info-msg">🔧 ${lang==='zh'?'已自动修复非标准格式':'Auto-fixed non-standard format'}</span>` : '') + html;
   } catch(e) { out.innerHTML = esc(rawOutput); }
 }
 
-/* ── Dispatch ── */
+/* ══════════════════════════════════════════
+   Main format dispatch
+══════════════════════════════════════════ */
 function format() {
   bIdCounter = 0;
   isCompressed = false;
+  wasAutoFixed = false;
   const btn = document.getElementById('btn-compress');
-  if (btn) { btn.classList.remove('active'); btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18"/></svg>压缩`; }
+  if (btn) { btn.classList.remove('active'); btn.querySelector('span').textContent = t('compress'); }
   const input = document.getElementById('input').value;
   const out = document.getElementById('output');
-  if (!input.trim()) { showToast('⚠️ 请先输入数据'); return; }
+  if (!input.trim()) { showToast(t('toast-no-input')); return; }
 
   const fmt = detectFormat(input);
   currentFormat = fmt;
@@ -809,20 +1178,29 @@ function format() {
   out.classList.remove('empty');
 
   try {
-    let html;
+    let result;
     switch(fmt) {
-      case 'JSON': html = formatJSON(input); break;
-      case 'XML':  html = formatXML(input);  break;
-      case 'HTML': html = formatHTML(input);  break;
-      case 'SQL':  html = formatSQL(input);   break;
-      case 'YAML': html = formatYAML(input);  break;
-      case 'CSV':  html = formatCSV(input);   break;
+      case 'JSON': result = formatJSON(input); break;
+      case 'XML':  result = formatXML(input);  break;
+      case 'HTML': result = formatHTML(input); break;
+      case 'SQL':  result = formatSQL(input);  break;
+      case 'YAML': result = formatYAML(input); break;
+      case 'CSV':  result = formatCSV(input);  break;
+      case 'KV':
+        rawOutput = '';
+        result = { html: formatKV(input), fixed: false };
+        break;
       default:
         rawOutput = input.trim();
-        html = esc(rawOutput);
-        showToast('⚠️ 未识别格式，已原样输出');
+        result = { html: esc(rawOutput), fixed: false };
+        showToast(t('toast-unknown'));
     }
-    out.innerHTML = html;
+    wasAutoFixed = result.fixed;
+    const fixedBanner = wasAutoFixed
+      ? `<span class="info-msg">🔧 ${lang==='zh'?'已自动修复非标准格式':'Auto-fixed non-standard format'}</span>`
+      : '';
+    out.innerHTML = fixedBanner + result.html;
+    if (wasAutoFixed) showToast(t('toast-fixed'));
   } catch(e) {
     out.innerHTML = `<span class="error-msg">❌ ${esc(e.message)}</span>`;
     rawOutput = '';
@@ -832,7 +1210,6 @@ function format() {
 function onInput() {
   const v = document.getElementById('input').value;
   updateBadge(v.trim() ? detectFormat(v) : 'unknown');
-  // 有换行 = 格式化数据，保持高亮；无换行 = 压缩数据，纯文本显示
   if (v.includes('\n')) {
     syncInputHL();
   } else {
@@ -844,34 +1221,38 @@ function scheduleFmt() { setTimeout(() => { syncInputHL(); format(); }, 60); }
 
 function updateBadge(fmt) {
   const b = document.getElementById('fmt-badge');
-  b.textContent = fmt === 'unknown' ? '未检测' : fmt;
+  b.textContent = fmt === 'unknown' ? t('undetected') : fmt;
   b.className = 'badge' + (fmt !== 'unknown' ? ' detected' : '');
+}
+
+function renderEmptyState() {
+  const out = document.getElementById('output');
+  out.innerHTML = `<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><p>${t('empty-p')}</p><small>${t('empty-hint')}</small></div>`;
+  out.classList.add('empty');
 }
 
 function clearInput() {
   document.getElementById('input').value = '';
   document.getElementById('input-hl').innerHTML = '';
-  const out = document.getElementById('output');
-  out.innerHTML = `<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><p>格式化结果将显示在这里</p><small>粘贴后自动格式化 · Ctrl+Enter 手动触发</small></div>`;
-  out.classList.add('empty');
+  renderEmptyState();
   updateBadge('unknown');
-  rawOutput = ''; currentFormat = ''; isCompressed = false;
+  rawOutput = ''; currentFormat = ''; isCompressed = false; wasAutoFixed = false;
   isInputCompressed = false; inputRaw = '';
   const ibtn = document.getElementById('btn-input-compress');
-  if (ibtn) { ibtn.classList.remove('active'); ibtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18"/></svg>压缩`; }
-  const btn = document.getElementById('btn-compress');
-  if (btn) { btn.classList.remove('active'); btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18"/></svg>压缩`; }
+  if (ibtn) { ibtn.classList.remove('active'); ibtn.querySelector('span').textContent = t('compress'); }
+  const cbtn = document.getElementById('btn-compress');
+  if (cbtn) { cbtn.classList.remove('active'); cbtn.querySelector('span').textContent = t('compress'); }
 }
 
 function copyOutput() {
-  if (!rawOutput) { showToast('⚠️ 暂无内容可复制'); return; }
+  if (!rawOutput) { showToast(t('toast-no-copy')); return; }
   const text = isCompressed ? getCompressed() : rawOutput;
-  navigator.clipboard.writeText(text).then(() => showToast('✅ 已复制到剪贴板'));
+  navigator.clipboard.writeText(text).then(() => showToast(t('toast-copied')));
 }
 
 function downloadOutput() {
-  if (!rawOutput) { showToast('⚠️ 暂无内容可下载'); return; }
-  const ext = {JSON:'json',XML:'xml',HTML:'html',SQL:'sql',YAML:'yaml',CSV:'csv'};
+  if (!rawOutput) { showToast(t('toast-no-download')); return; }
+  const ext = {JSON:'json',XML:'xml',HTML:'html',SQL:'sql',YAML:'yaml',CSV:'csv',KV:'txt'};
   const text = isCompressed ? getCompressed() : rawOutput;
   const suffix = isCompressed ? '.min' : '';
   const a = document.createElement('a');
@@ -886,6 +1267,9 @@ function showToast(msg) {
   setTimeout(() => t.classList.remove('show'), 2200);
 }
 
+/* ══════════════════════════════════════════
+   Event listeners
+══════════════════════════════════════════ */
 document.getElementById('output').addEventListener('click', e => {
   const span = e.target.closest('.b-pair');
   document.querySelectorAll('#output .b-active').forEach(el => el.classList.remove('b-active'));
@@ -906,12 +1290,14 @@ document.getElementById('input').addEventListener('scroll', function () {
 
 document.getElementById('input').addEventListener('keydown', e => {
   if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
-    // Enter alone = format（Shift+Enter = 换行）
     const v = document.getElementById('input').value.trim();
     if (v) { e.preventDefault(); format(); }
   }
   if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); format(); }
 });
+
+// Init
+applyI18n();
 </script>
 </body>
 </html>
