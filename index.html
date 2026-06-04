@@ -23,12 +23,12 @@
       --json-num: #D19A66;
       --json-bool: #E06C75;
       --json-null: #7F848E;
-      --xml-tag: #E06C75;
+      --xml-tag: #D19A66;
       --xml-attr: #4FC1FF;
       --xml-val: #98C379;
       --sql-kw: #C678DD;
       --sql-fn: #61AFEF;
-      --html-tag: #E06C75;
+      --html-tag: #D19A66;
       --html-attr: #4FC1FF;
       --code-font: 'Cascadia Code', 'JetBrains Mono', 'Fira Code', monospace;
       --code-size: 13px;
@@ -51,12 +51,12 @@
       --json-num: #b05a00;
       --json-bool: #b02060;
       --json-null: #888fa0;
-      --xml-tag: #b02060;
+      --xml-tag: #b05a00;
       --xml-attr: #0070c1;
       --xml-val: #3c7a29;
       --sql-kw: #7c34c8;
       --sql-fn: #1560c0;
-      --html-tag: #b02060;
+      --html-tag: #b05a00;
       --html-attr: #0070c1;
     }
 
@@ -857,6 +857,14 @@ function highlightJSON(s) {
 /* ══════════════════════════════════════════
    XML
 ══════════════════════════════════════════ */
+// XML-safe escaping for text content and attribute values
+function xmlEscText(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function xmlEscAttr(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+}
+
 function formatXML(s) {
   const parser = new DOMParser();
   let doc = parser.parseFromString(s, 'application/xml');
@@ -879,15 +887,16 @@ function formatXML(s) {
 
 function serXML(node, d) {
   const ind = '    '.repeat(d);
-  if (node.nodeType===3) { const t=node.textContent.trim(); return t?ind+t:''; }
-  if (node.nodeType===8) return `${ind}<!--${node.textContent}-->`;
+  if (node.nodeType===3) { const t=node.textContent.trim(); return t?ind+xmlEscText(t):''; }
+  if (node.nodeType===7) return node.data?`${ind}<?${node.target} ${node.data}?>`:`${ind}<?${node.target}?>`;
+  if (node.nodeType===8) return `${ind}<!--${xmlEscText(node.textContent)}-->`;
   if (node.nodeType===9) return Array.from(node.childNodes).map(n=>serXML(n,d)).filter(Boolean).join('\n');
-  const tag=node.tagName, attrs=Array.from(node.attributes).map(a=>` ${a.name}="${a.value}"`).join('');
+  const tag=node.tagName, attrs=Array.from(node.attributes).map(a=>` ${a.name}="${xmlEscAttr(a.value)}"`).join('');
   const kids=Array.from(node.childNodes);
   if (!kids.length) return `${ind}<${tag}${attrs}/>`;
   if (kids.length===1&&kids[0].nodeType===3) {
     const t=kids[0].textContent.trim();
-    return t?`${ind}<${tag}${attrs}>${t}</${tag}>`:`${ind}<${tag}${attrs}/>`;
+    return t?`${ind}<${tag}${attrs}>${xmlEscText(t)}</${tag}>`:`${ind}<${tag}${attrs}/>`;
   }
   const inner=kids.map(c=>serXML(c,d+1)).filter(Boolean).join('\n');
   return `${ind}<${tag}${attrs}>\n${inner}\n${ind}</${tag}>`;
@@ -897,6 +906,7 @@ function serHlXML(node, d) {
   const ind = '    '.repeat(d);
   const col = bc(d);
   if (node.nodeType===3) { const t=node.textContent.trim(); return t?ind+esc(t):''; }
+  if (node.nodeType===7) return `${ind}<span class="t-xcomm">&lt;?${esc(node.target)}${node.data?' '+esc(node.data):''}?&gt;</span>`;
   if (node.nodeType===8) return `${ind}<span class="t-xcomm">&lt;!--${esc(node.textContent)}--&gt;</span>`;
   if (node.nodeType===9) return Array.from(node.childNodes).map(n=>serHlXML(n,d)).filter(Boolean).join('\n');
   const tag = node.tagName;
