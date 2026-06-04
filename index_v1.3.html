@@ -1154,7 +1154,7 @@ function toggleCompress() {
   isCompressed = !isCompressed;
   if (isCompressed) {
     const text = getCompressed();
-    out.innerHTML = `<span class="t-str">${esc(text)}</span>`;
+    out.innerHTML = esc(text);
     out.classList.add('compressed');
     btn.classList.add('active');
     lbl.textContent = t('restore');
